@@ -1,0 +1,153 @@
+"""Pydantic v2 models for the salon CRM — hand-mirrored in frontend/src/lib/types.ts."""
+
+import uuid
+from datetime import datetime, timezone
+
+from pydantic import BaseModel, Field, field_validator
+
+
+def new_id() -> str:
+    return str(uuid.uuid4())
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# ---- Stylists ----
+
+
+class StylistCreate(BaseModel):
+    name: str
+    title: str = ""
+    color: str = "#8F4E34"
+    avatar_url: str | None = None
+    active: bool = True
+
+
+class StylistUpdate(BaseModel):
+    name: str | None = None
+    title: str | None = None
+    color: str | None = None
+    avatar_url: str | None = None
+    active: bool | None = None
+
+
+class Stylist(StylistCreate):
+    id: str = Field(default_factory=new_id)
+    created_at: datetime = Field(default_factory=utcnow)
+    client_count: int = 0
+
+
+# ---- Clients ----
+
+
+class ClientCreate(BaseModel):
+    name: str
+    email: str | None = None
+    phone: str | None = None
+    birthday: str | None = None
+    stylist_id: str | None = None
+    hair_type: str | None = None
+    last_visit: str | None = None
+    formula: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("last_visit", "birthday")
+    @classmethod
+    def _iso_date(cls, v: str | None) -> str | None:
+        if not v:
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError("date must be YYYY-MM-DD") from exc
+        return v
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _clean_tags(cls, v: object) -> object:
+        if isinstance(v, list):
+            return [t.strip() for t in v if isinstance(t, str) and t.strip()]
+        return v
+
+
+class ClientUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    birthday: str | None = None
+    stylist_id: str | None = None
+    hair_type: str | None = None
+    last_visit: str | None = None
+    formula: str | None = None
+    tags: list[str] | None = None
+
+    @field_validator("last_visit", "birthday")
+    @classmethod
+    def _iso_date(cls, v: str | None) -> str | None:
+        if not v:
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError("date must be YYYY-MM-DD") from exc
+        return v
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _clean_tags(cls, v: object) -> object:
+        if isinstance(v, list):
+            return [t.strip() for t in v if isinstance(t, str) and t.strip()]
+        return v
+
+
+class ClientRead(ClientCreate):
+    id: str
+    created_at: datetime
+    stylist_name: str | None = None
+    stylist_color: str | None = None
+    days_since_visit: int | None = None
+    note_count: int = 0
+
+
+# ---- Notes ----
+
+NOTE_KINDS = ("visit", "formula", "allergy", "general")
+
+
+class NoteCreate(BaseModel):
+    body: str
+    kind: str = "general"
+    visit_date: str | None = None
+
+    @field_validator("visit_date")
+    @classmethod
+    def _iso_date(cls, v: str | None) -> str | None:
+        if not v:
+            return None
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError("date must be YYYY-MM-DD") from exc
+        return v
+
+
+class Note(BaseModel):
+    id: str = Field(default_factory=new_id)
+    client_id: str
+    kind: str = "general"
+    body: str
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+# ---- Workspace stats ----
+
+
+class Stats(BaseModel):
+    today: str
+    total_clients: int
+    active_stylists: int
+    visits_this_month: int
+    recall_due: int
+    unassigned: int

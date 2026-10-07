@@ -1,0 +1,216 @@
+{
+  "project_name": "Atelier Hair Salon CRM",
+  "archetype": "ORGANIC & EARTHY mixed with WARM EDITORIAL LUXURY",
+  "theme_strategy": "Warm editorial light mode with tactile terracotta & espresso accents, rich parchment backgrounds, subtle fluted glass card borders, and high-legibility typography.",
+  "colors": {
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#FAF7F2",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E",
+        "roles": {
+          "brand": "#8F4E34",
+          "border": "#E7DFD5",
+          "accent_soft": "#F3ECE1"
+        }
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#FFFFFF",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E",
+        "roles": {
+          "border": "#EFE9DF",
+          "hover_bg": "#FAF7F2"
+        }
+      },
+      {
+        "name": "card_elevated",
+        "kind": "solid",
+        "bg": "#FFFFFF",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#78716C",
+        "roles": {
+          "border": "#E5DCD0",
+          "shadow": "0 4px 20px -2px rgba(44, 30, 20, 0.05)"
+        }
+      },
+      {
+        "name": "topbar",
+        "kind": "glass",
+        "contrast_against": "#FFFFFF",
+        "guarantee": "backdrop-blur-md bg-[#FAF7F2]/85 border-b border-[#E7DFD5]",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E"
+      },
+      {
+        "name": "sidebar",
+        "kind": "solid",
+        "bg": "#221C18",
+        "on_bg": "#F5EFE6",
+        "on_bg_muted": "#A89F91",
+        "roles": {
+          "active_bg": "#342C26",
+          "accent": "#D97757",
+          "border": "#2E2520"
+        }
+      },
+      {
+        "name": "badge_vip",
+        "kind": "solid",
+        "bg": "#FBEFE9",
+        "on_bg": "#8F4E34",
+        "on_bg_muted": "#B46548"
+      },
+      {
+        "name": "badge_recent",
+        "kind": "solid",
+        "bg": "#EBF4EE",
+        "on_bg": "#235937",
+        "on_bg_muted": "#3A7E54"
+      },
+      {
+        "name": "badge_overdue",
+        "kind": "solid",
+        "bg": "#FDF2E9",
+        "on_bg": "#9A4B1A",
+        "on_bg_muted": "#C2672B"
+      },
+      {
+        "name": "dialog_modal",
+        "kind": "solid",
+        "bg": "#FFFFFF",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E"
+      }
+    ],
+    "accent": "#8F4E34",
+    "on_accent": "#FFFFFF",
+    "accent_hover": "#773F29",
+    "accent_secondary": "#B88358",
+    "semantic": {
+      "success": "#2D6A4F",
+      "warning": "#B45309",
+      "destructive": "#991B1B",
+      "info": "#1E3A8A"
+    }
+  },
+  "typography": {
+    "font_imports": [
+      "@import \"@fontsource-variable/playfair-display\";",
+      "@import \"@fontsource-variable/dm-sans\";",
+      "@import \"@fontsource-variable/jetbrains-mono\";"
+    ],
+    "font_heading": "'Playfair Display Variable', Georgia, serif",
+    "font_sans": "'DM Sans Variable', system-ui, sans-serif",
+    "font_mono": "'JetBrains Mono Variable', monospace",
+    "scale_px": {
+      "display": 52,
+      "h1": 40,
+      "h2": 28,
+      "h3": 20,
+      "h4": 18,
+      "body": 15,
+      "caption": 13
+    },
+    "rules": {
+      "headings": "font-serif tracking-tight font-semibold text-stone-900",
+      "body": "font-sans text-stone-700 leading-relaxed",
+      "mono_data": "font-mono text-xs uppercase tracking-wider text-stone-500",
+      "subheadings": "font-sans text-sm font-medium text-stone-500 uppercase tracking-widest"
+    }
+  },
+  "entry_surfaces": {
+    "/": "editorial salon command center — warm dark-espresso collapsible navigation, warm parchment top bar with quick actions, live KPI stat trio, stylist filter tabs, and responsive dual-pane clients table with expandable drawer for rich formula & visit history notes"
+  },
+  "visual_enhancers": {
+    "textures": "Subtle paper grain background feel on #FAF7F2, delicate 1px warm sand borders (#E7DFD5), warm amber button glow on primary actions.",
+    "border_radius": "rounded-2xl for main cards, rounded-xl for modals & drawers, rounded-lg for input controls, rounded-full for status chips & stylist avatars.",
+    "shadows": {
+      "card": "0 1px 3px 0 rgba(44, 30, 20, 0.04), 0 6px 16px -4px rgba(44, 30, 20, 0.06)",
+      "drawer": "-10px 0 30px rgba(28, 25, 23, 0.08)",
+      "dropdown": "0 10px 25px -5px rgba(28, 25, 23, 0.1), 0 8px 10px -6px rgba(28, 25, 23, 0.05)"
+    }
+  },
+  "grids_and_layouts": {
+    "app_shell": "flex h-screen bg-[#FAF7F2] overflow-hidden antialiased",
+    "sidebar": "w-64 bg-[#221C18] text-[#F5EFE6] border-r border-[#2E2520] flex-shrink-0 flex flex-col justify-between hidden md:flex",
+    "main_content": "flex-1 flex flex-col min-w-0 overflow-y-auto",
+    "topbar": "h-18 px-6 lg:px-8 border-b border-[#E7DFD5] bg-[#FAF7F2]/90 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between",
+    "dashboard_stats_grid": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-6 lg:px-8 pt-6 pb-2",
+    "client_section_layout": "px-6 lg:px-8 py-6 space-y-4 flex-1 flex flex-col",
+    "stylist_management_layout": "px-6 lg:px-8 py-6 space-y-6"
+  },
+  "motion": {
+    "transitions": "transition-colors duration-150 ease-out, transition-transform duration-150 ease-out",
+    "client_drawer": "motion.div slide-in from right with cubic-bezier(0.16, 1, 0.3, 1)",
+    "modal_enter": "scale-up & fade-in (opacity: 0, scale: 0.98 -> opacity: 1, scale: 1)"
+  },
+  "accessibility": {
+    "contrast_compliance": "WCAG AA (minimum 4.5:1 text on all surfaces)",
+    "keyboard_nav": "Full keyboard navigation on Client search (Cmd+K / Ctrl+K), Dialog focus traps, ESC to close modals/drawers",
+    "data_testids": "data-testid attributes attached to all search inputs, action buttons, filter pills, client table rows, modal triggers, and form fields"
+  },
+  "image_urls": {
+    "salon_ambience_1": {
+      "url": "https://images.unsplash.com/photo-1706629503650-cade709d15e3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwyfHxoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMHdhcm0lMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzkxMzM5MTgxfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Warm minimalist hair salon interior with glowing arched mirrors and styling chairs",
+      "placement": "Dashboard banner header or Stylist Team overview header background with warm scrim"
+    },
+    "stylist_avatar_1": {
+      "url": "https://images.unsplash.com/photo-1607503873903-c5e95f80d7b9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwzfHxoYWlyJTIwc3R5bGlzdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc5MTMzOTE4MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Senior Master Stylist portrait (Elena Vance - Balayage Specialist)",
+      "placement": "Stylist roster avatar / assigned stylist badge"
+    },
+    "stylist_avatar_2": {
+      "url": "https://images.unsplash.com/photo-1690642143805-34aa01fdbba8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHw0fHxoYWlyJTIwc3R5bGlzdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc5MTMzOTE4MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Creative Colorist Stylist portrait (Camila Rossi - Creative Color & Tone)",
+      "placement": "Stylist roster avatar"
+    },
+    "stylist_avatar_3": {
+      "url": "https://images.unsplash.com/photo-1557053910-d9eadeed1c58?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwyfHxoYWlyJTIwc3R5bGlzdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc5MTMzOTE4MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Hair Texture Specialist portrait (Mateo Silva - Precision Cuts & Texture)",
+      "placement": "Stylist roster avatar"
+    },
+    "styling_action_thumbnail": {
+      "url": "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxoYWlyJTIwc2Fsb24lMjBzdHlsaW5nJTIwY2xpZW50fGVufDB8fHx8MTc5MTMzOTE4MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Stylist blowdrying and finishing client hair",
+      "placement": "Visit formula / treatment note thumbnail illustration"
+    }
+  },
+  "component_path": {
+    "AppShell": "frontend/src/components/layout/AppShell.tsx",
+    "Sidebar": "frontend/src/components/layout/Sidebar.tsx",
+    "TopNav": "frontend/src/components/layout/TopNav.tsx",
+    "ClientsDashboard": "frontend/src/pages/ClientsDashboard.tsx",
+    "ClientTable": "frontend/src/components/clients/ClientTable.tsx",
+    "ClientDetailDrawer": "frontend/src/components/clients/ClientDetailDrawer.tsx",
+    "ClientFormModal": "frontend/src/components/clients/ClientFormModal.tsx",
+    "StylistRosterModal": "frontend/src/components/stylists/StylistRosterModal.tsx",
+    "StylistManagement": "frontend/src/pages/StylistsPage.tsx",
+    "NotesTimeline": "frontend/src/components/clients/NotesTimeline.tsx",
+    "KpiStatCards": "frontend/src/components/dashboard/KpiStatCards.tsx"
+  },
+  "instructions_to_main_agent": [
+    "1. THEME & PALETTE: Setup `frontend/src/index.css` with font imports: `@import \"@fontsource-variable/playfair-display\";` and `@import \"@fontsource-variable/dm-sans\";`. Configure `--font-heading: 'Playfair Display Variable', Georgia, serif;` and `--font-sans: 'DM Sans Variable', sans-serif;`. Set the base background to warm stone/parchment `#FAF7F2` and primary brand accent to terracotta `#8F4E34`.",
+    "2. BACKEND API (FastAPI in `backend/`): Implement endpoints: `GET/POST /api/stylists`, `PUT/DELETE /api/stylists/{id}`, `GET/POST /api/clients` (with query params `search`, `stylist_id`, `sort_by`), `GET/PUT/DELETE /api/clients/{id}`, `POST /api/clients/{id}/notes` (formula notes, allergy alerts, visit notes, service history), `GET /api/stats` (total clients, active stylists, visits this month, overdue/due for recall clients).",
+    "3. SEED DATA (`backend/seed.py`): Populate realistic high-end salon data: 4 talented stylists (Elena Vance, Camila Rossi, Mateo Silva, Chloe Bennet) with specialties, color formulas, and ~12 rich client profiles with Brazilian Portuguese & international names (e.g. Beatriz Carvalho, Juliana Mendes, Rodrigo Santos, Isabella Fontana, Clara Dupont) with realistic hair notes (e.g. 'Wella Illumina 7/81 + 6% at roots, toner 9/60 gloss', 'Sensitive scalp - no ammonia bleach', 'Loves cappuccino extra foam, preferred Saturday morning').",
+    "4. CORE CRM FUNCTIONALITY (No login required - staff collaborative workspace):",
+    "   - Real-time instant search across client names, phone, email, tags, and formula notes.",
+    "   - Stylist filter pill tabs: 'All Stylists', 'Elena Vance', 'Camila Rossi', 'Mateo Silva', 'Chloe Bennet', plus 'Unassigned'.",
+    "   - Client drawer / sheet with complete history: Contact info, preferred stylist with quick reassign, last visit date with relative tag (e.g., '12 days ago' or '8 weeks ago - recall due'), formulas log, allergy tags, and chronological notes feed with add note capability.",
+    "   - Client Add/Edit Modal: Full form with name, email, phone, birthday, preferred stylist, hair type/texture, last visit date picker (using shadcn Calendar/Popover), primary formula/allergies, and initial notes.",
+    "   - Stylist Roster Management: Modal or dedicated view to Add/Edit Stylists (name, title/specialty, color tag, photo avatar, status active/away).",
+    "   - Quick Action: 'Log Today Visit' or 'Add Quick Note' directly from client row or drawer.",
+    "5. DATA-TESTID: Ensure every interactive element has explicit data-testids (e.g., `client-search-input`, `add-client-button`, `stylist-filter-tab-{id}`, `client-row-{id}`, `save-client-submit`, `manage-stylists-btn`, `delete-client-btn`, `add-note-btn`).",
+    "6. FORMATS & LOCALES: Support Brazilian/Latin and International date formatting (e.g., DD/MM/YYYY or standard '15 Oct 2026') and phone masking. Use Sonner toasts (`toast.success(...)`) on all CRUD actions."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "spacing": "Generous luxury spacing: p-6 to p-8 on card containers, gap-4 to gap-6 between layout elements.",
+    "visual_depth": "Warm subtle borders (border-[#E7DFD5]), subtle soft inner glows, avoid cold stark black borders. Use warm terracotta buttons with hover darkening.",
+    "modals_and_sheets": "Use shadcn Dialog and Sheet with customized warm sand borders and rounded-2xl headers. No raw unstyled HTML dropdowns."
+  }
+}
