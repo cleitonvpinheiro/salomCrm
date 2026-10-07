@@ -32,6 +32,25 @@ INDEXES: dict[str, list[IndexModel]] = {
             name="client_created_desc",
         ),
     ],
+    "users": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("email", ASCENDING)], name="email", unique=True),
+    ],
+    "sessions": [
+        IndexModel([("token", ASCENDING)], name="token", unique=True),
+        IndexModel([("user_id", ASCENDING)], name="user_id"),
+        IndexModel([("expires_at", DESCENDING)], name="expires_at"),
+    ],
+    "services": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("name", ASCENDING)], name="name_asc"),
+    ],
+    "appointments": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("date", ASCENDING), ("time", ASCENDING)], name="date_time"),
+        IndexModel([("client_id", ASCENDING)], name="client_id"),
+        IndexModel([("stylist_id", ASCENDING)], name="stylist_id"),
+    ],
 }
 
 

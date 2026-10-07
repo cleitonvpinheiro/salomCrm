@@ -5,6 +5,7 @@ import { Pencil, Plus, Scissors, Trash2 } from "lucide-react";
 import { apiDelete, apiGet } from "@/lib/api";
 import type { Stylist } from "@/lib/types";
 import { initials } from "@/lib/format";
+import { useUser } from "@/lib/userContext";
 import AppShell from "@/components/layout/AppShell";
 import StylistFormModal from "@/components/stylists/StylistFormModal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
@@ -15,10 +16,12 @@ const BANNER_URL =
 
 function StylistCard({
   stylist,
+  canManage,
   onEdit,
   onDelete,
 }: {
   stylist: Stylist;
+  canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -65,33 +68,37 @@ function StylistCard({
           </span>
           client{stylist.client_count === 1 ? "" : "s"}
         </p>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Edit ${stylist.name}`}
-            data-testid={`edit-stylist-${stylist.id}`}
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Remove ${stylist.name}`}
-            data-testid={`delete-stylist-${stylist.id}`}
-            className="text-stone-400 hover:text-destructive"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        {canManage ? (
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit ${stylist.name}`}
+              data-testid={`edit-stylist-${stylist.id}`}
+              onClick={onEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove ${stylist.name}`}
+              data-testid={`delete-stylist-${stylist.id}`}
+              className="text-stone-400 hover:text-destructive"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
 export default function StylistsPage() {
+  const user = useUser();
+  const canManage = user.role === "admin";
   const qc = useQueryClient();
   const stylistsQuery = useQuery({
     queryKey: ["stylists"],
@@ -121,15 +128,17 @@ export default function StylistsPage() {
       title="Stylists"
       subtitle="The roster — specialties, statuses and client loads"
       actions={
-        <Button
-          data-testid="add-stylist-button"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> Add stylist
-        </Button>
+        canManage ? (
+          <Button
+            data-testid="add-stylist-button"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> Add stylist
+          </Button>
+        ) : undefined
       }
     >
       <div className="space-y-6 px-6 py-6 lg:px-8">
@@ -197,6 +206,7 @@ export default function StylistsPage() {
               <StylistCard
                 key={s.id}
                 stylist={s}
+                canManage={canManage}
                 onEdit={() => {
                   setEditing(s);
                   setFormOpen(true);

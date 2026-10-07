@@ -53,3 +53,19 @@ export function initials(name: string): string {
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
 }
+
+/** "14:30" + 90 → "16:00" */
+export function addMinutes(time: string, minutes: number): string {
+  const parts = time.split(":");
+  const h = Number(parts[0] ?? 0);
+  const m = Number(parts[1] ?? 0);
+  const total = h * 60 + m + minutes;
+  const hh = Math.floor(total / 60) % 24;
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+/** 120 → "R$ 120,00" */
+export function formatBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}

@@ -1,4 +1,4 @@
-"""Idempotent seed: 4 stylists + 12 rich client profiles with notes.
+"""Idempotent seed: users, stylists, services, clients with notes, appointments.
 
 Run: cd /app/backend && python seed.py
 """
@@ -7,11 +7,18 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 
 from lib.db import db, ensure_indexes
+from routers.auth import hash_password
 
 AVATAR_ELENA = "https://images.unsplash.com/photo-1607503873903-c5e95f80d7b9?crop=entropy&cs=srgb&fm=jpg&q=85"
 AVATAR_CAMILA = "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=srgb&fm=jpg&q=85"
 AVATAR_MATEO = "https://images.unsplash.com/photo-1728516687003-58347d3412b3?crop=entropy&cs=srgb&fm=jpg&q=85"
 AVATAR_CHLOE = "https://images.unsplash.com/photo-1506863530036-1efeddceb993?crop=entropy&cs=srgb&fm=jpg&q=85"
+
+USERS = [
+    {"id": "user-admin", "name": "Atelier Admin", "email": "admin@atelier.com", "role": "admin", "active": True},
+    {"id": "user-marina", "name": "Marina Duarte", "email": "marina@atelier.com", "role": "staff", "active": True},
+]
+SEED_PASSWORD = "atelier123"
 
 STYLISTS = [
     {"id": "stylist-elena", "name": "Elena Vance", "title": "Senior Master Stylist · Balayage",
@@ -22,6 +29,27 @@ STYLISTS = [
      "color": "#2D6A4F", "avatar_url": AVATAR_MATEO, "active": True},
     {"id": "stylist-chloe", "name": "Chloe Bennet", "title": "Style Director · Occasion Styling",
      "color": "#1E3A8A", "avatar_url": AVATAR_CHLOE, "active": True},
+]
+
+SERVICES = [
+    {"id": "service-balayage", "name": "Balayage & Gloss",
+     "description": "Hand-painted highlights finished with a shine gloss.",
+     "duration_min": 150, "price": 380.0, "active": True},
+    {"id": "service-colour", "name": "Root Colour Touch-Up",
+     "description": "Roots retouched, ammonia-free options available.",
+     "duration_min": 90, "price": 180.0, "active": True},
+    {"id": "service-cut", "name": "Signature Cut & Blow-Dry",
+     "description": "Precision cut with a volumising blow-dry.",
+     "duration_min": 60, "price": 140.0, "active": True},
+    {"id": "service-curls", "name": "Curly Cut & Hydration",
+     "description": "Dry curly cut with a deep hydration mask.",
+     "duration_min": 75, "price": 160.0, "active": True},
+    {"id": "service-treatment", "name": "Deep Repair Treatment",
+     "description": "Bond-repair ritual for stressed hair.",
+     "duration_min": 45, "price": 120.0, "active": True},
+    {"id": "service-updo", "name": "Occasion Up-Do",
+     "description": "Event styling with a lasting hold.",
+     "duration_min": 60, "price": 150.0, "active": False},
 ]
 
 # (key, name, email, phone, birthday, stylist_key, hair_type, days_since_visit, formula, tags, notes)
@@ -104,11 +132,23 @@ CLIENTS = [
      [("general", 5, "First consultation booked — wants a soft fringe trial. No colour history on file yet.")]),
 ]
 
+# (key, client_key, stylist_key, service_key, day_offset, time, status, notes)
+APPOINTMENTS = [
+    ("appt-a1", "beatriz", "elena", "cut", 0, "09:00", "scheduled", "Wants to talk about autumn tones."),
+    ("appt-a2", "rodrigo", "mateo", "curls", 0, "11:00", "scheduled", None),
+    ("appt-a3", "juliana", "camila", "colour", 0, "14:30", "scheduled", None),
+    ("appt-a4", "sofia", "camila", "balayage", 1, "10:00", "scheduled", None),
+    ("appt-a5", "lucas", "mateo", "cut", 1, "16:00", "scheduled", "Prefers the last slot of the day."),
+    ("appt-a6", "amara", "mateo", "treatment", 3, "09:30", "scheduled", None),
+    ("appt-a7", "hannah", "elena", "colour", 5, "13:00", "scheduled", "Fragrance-free products only."),
+    ("appt-a8", "beatriz", "elena", "balayage", -3, "10:00", "completed", None),
+    ("appt-a9", "priya", "chloe", "cut", -1, "15:00", "cancelled", "Reschedule requested."),
+]
 
-def iso_days_ago(days: int | None) -> str | None:
-    if days is None:
-        return None
-    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+
+def iso_offset(days: int) -> str:
+    """Date `days` from today (negative = past), as YYYY-MM-DD."""
+    return (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%Y-%m-%d")
 
 
 def ts_days_ago(days: int, hour: int = 10) -> datetime:
@@ -119,49 +159,107 @@ def ts_days_ago(days: int, hour: int = 10) -> datetime:
 async def main() -> None:
     await ensure_indexes()
 
-    if await db.stylists.count_documents({}) > 0:
-        print("seed skipped: data already present")
-        return
+    # --- users (admin + staff, both with the demo password) ---
+    if await db.users.count_documents({}) == 0:
+        await db.users.insert_many(
+            [
+                {**u, "password_hash": hash_password(SEED_PASSWORD), "created_at": ts_days_ago(200)}
+                for u in USERS
+            ]
+        )
+        print(f"seeded {len(USERS)} users — admin@atelier.com / marina@atelier.com (password: {SEED_PASSWORD})")
+    else:
+        print("users already present, skipping")
 
-    await db.stylists.insert_many(
-        [{**s, "created_at": ts_days_ago(200)} for s in STYLISTS]
-    )
+    # --- stylists ---
+    if await db.stylists.count_documents({}) == 0:
+        await db.stylists.insert_many([{**s, "created_at": ts_days_ago(200)} for s in STYLISTS])
+        print(f"seeded {len(STYLISTS)} stylists")
+    else:
+        print("stylists already present, skipping")
 
-    stylist_ids = {s["id"].replace("stylist-", ""): s["id"] for s in STYLISTS}
+    # --- services ---
+    if await db.services.count_documents({}) == 0:
+        await db.services.insert_many([{**s, "created_at": ts_days_ago(150)} for s in SERVICES])
+        print(f"seeded {len(SERVICES)} services")
+    else:
+        print("services already present, skipping")
 
-    client_docs = []
-    note_docs = []
-    for (key, name, email, phone, birthday, stylist_key, hair_type,
-         days_since, formula, tags, notes) in CLIENTS:
-        client_id = f"client-{key}"
-        client_docs.append({
-            "id": client_id,
-            "name": name,
-            "email": email,
-            "phone": phone,
-            "birthday": birthday,
-            "stylist_id": stylist_ids.get(stylist_key) if stylist_key else None,
-            "hair_type": hair_type,
-            "last_visit": iso_days_ago(days_since),
-            "formula": formula,
-            "tags": tags,
-            "created_at": ts_days_ago(180),
-        })
-        for i, (kind, days_ago, body) in enumerate(notes):
-            note_docs.append({
-                "id": f"note-{key}-{i}",
-                "client_id": client_id,
-                "kind": kind,
-                "body": body,
-                "created_at": ts_days_ago(days_ago),
+    # --- clients + their notes ---
+    if await db.clients.count_documents({}) == 0:
+        stylist_ids = {s["id"].replace("stylist-", ""): s["id"] for s in STYLISTS}
+
+        client_docs = []
+        note_docs = []
+        for (key, name, email, phone, birthday, stylist_key, hair_type,
+             days_since, formula, tags, notes) in CLIENTS:
+            client_id = f"client-{key}"
+            client_docs.append({
+                "id": client_id,
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "birthday": birthday,
+                "stylist_id": stylist_ids.get(stylist_key) if stylist_key else None,
+                "hair_type": hair_type,
+                "last_visit": iso_offset(-days_since) if days_since is not None else None,
+                "formula": formula,
+                "tags": tags,
+                "created_at": ts_days_ago(180),
             })
+            for i, (kind, days_ago, body) in enumerate(notes):
+                note_docs.append({
+                    "id": f"note-{key}-{i}",
+                    "client_id": client_id,
+                    "kind": kind,
+                    "body": body,
+                    "created_at": ts_days_ago(days_ago),
+                })
 
-    if client_docs:
         await db.clients.insert_many(client_docs)
-    if note_docs:
         await db.notes.insert_many(note_docs)
+        print(f"seeded {len(client_docs)} clients, {len(note_docs)} notes")
+    else:
+        print("clients already present, skipping")
 
-    print(f"seeded {len(STYLISTS)} stylists, {len(client_docs)} clients, {len(note_docs)} notes")
+    # --- appointments (+ visit notes for completed ones) ---
+    if await db.appointments.count_documents({}) == 0:
+        stylist_ids = {s["id"].replace("stylist-", ""): s["id"] for s in STYLISTS}
+        service_ids = {s["id"].replace("service-", ""): s["id"] for s in SERVICES}
+        service_names = {s["id"]: s["name"] for s in SERVICES}
+
+        appt_docs = []
+        for (key, client_key, stylist_key, service_key, offset, appt_time, status, appt_notes) in APPOINTMENTS:
+            appt_docs.append({
+                "id": key,
+                "client_id": f"client-{client_key}",
+                "stylist_id": stylist_ids[stylist_key],
+                "service_id": service_ids[service_key],
+                "date": iso_offset(offset),
+                "time": appt_time,
+                "notes": appt_notes,
+                "status": status,
+                "created_by": "user-admin",
+                "created_at": ts_days_ago(2),
+            })
+        await db.appointments.insert_many(appt_docs)
+
+        visit_notes = [
+            {
+                "id": f"note-appt-{key}",
+                "client_id": f"client-{client_key}",
+                "kind": "visit",
+                "body": f"Appointment completed — {service_names[service_ids[service_key]]}.",
+                "created_at": ts_days_ago(-offset, 12),
+            }
+            for (key, client_key, _stk, service_key, offset, _t, status, _n) in APPOINTMENTS
+            if status == "completed"
+        ]
+        if visit_notes:
+            await db.notes.insert_many(visit_notes)
+        print(f"seeded {len(appt_docs)} appointments (+{len(visit_notes)} visit note)")
+    else:
+        print("appointments already present, skipping")
 
 
 if __name__ == "__main__":

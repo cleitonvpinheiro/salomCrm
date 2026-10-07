@@ -1,22 +1,39 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Scissors, Sparkles, Users } from "lucide-react";
+import { toast } from "sonner";
+import { CalendarDays, LogOut, Scissors, Sparkles, Tag, Users } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { Stats } from "@/lib/types";
+import { logout } from "@/lib/session";
+import { initials } from "@/lib/format";
+import { useUser } from "@/lib/userContext";
 import { cn } from "@/lib/utils";
-
-const NAV = [
-  { to: "/", label: "Clients", icon: Users, testid: "nav-clients" },
-  { to: "/stylists", label: "Stylists", icon: Scissors, testid: "nav-stylists" },
-];
+import { Button } from "@/components/ui/button";
 
 export default function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = useUser();
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: () => apiGet<Stats>("/stats"),
     retry: false,
   });
+
+  const nav = [
+    { to: "/", label: "Clients", icon: Users, testid: "nav-clients" },
+    { to: "/agenda", label: "Agenda", icon: CalendarDays, testid: "nav-agenda" },
+    { to: "/stylists", label: "Stylists", icon: Scissors, testid: "nav-stylists" },
+    ...(user.role === "admin"
+      ? [{ to: "/servicos", label: "Services", icon: Tag, testid: "nav-services" }]
+      : []),
+  ];
+
+  const handleLogout = async () => {
+    await logout();
+    toast.success("Signed out — see you soon");
+    navigate("/login", { replace: true });
+  };
 
   return (
     <aside className="hidden w-64 flex-shrink-0 flex-col justify-between border-r border-[#2E2520] bg-[#221C18] text-[#F5EFE6] md:flex">
@@ -33,7 +50,7 @@ export default function Sidebar() {
           </div>
         </div>
         <nav className="space-y-1 px-3" data-testid="sidebar-nav">
-          {NAV.map(({ to, label, icon: Icon, testid }) => {
+          {nav.map(({ to, label, icon: Icon, testid }) => {
             const active = location.pathname === to;
             return (
               <Link
@@ -53,7 +70,13 @@ export default function Sidebar() {
                 </span>
                 {active && stats && (
                   <span className="font-mono text-xs text-[#D97757]">
-                    {to === "/" ? stats.total_clients : stats.active_stylists}
+                    {to === "/"
+                      ? stats.total_clients
+                      : to === "/stylists"
+                        ? stats.active_stylists
+                        : to === "/agenda"
+                          ? stats.visits_this_month
+                          : undefined}
                   </span>
                 )}
               </Link>
@@ -61,10 +84,11 @@ export default function Sidebar() {
           })}
         </nav>
       </div>
+
       <div className="px-6 pb-6">
         <div className="rounded-xl border border-[#2E2520] bg-[#342C26]/50 p-4">
           <div className="flex items-center gap-2 text-[#D97757]">
-            <CalendarClock className="h-4 w-4" />
+            <CalendarDays className="h-4 w-4" />
             <p className="font-mono text-[10px] uppercase tracking-[0.22em]">Recall due</p>
           </div>
           <p
@@ -79,9 +103,31 @@ export default function Sidebar() {
               : "Loading workspace…"}
           </p>
         </div>
-        <p className="mt-4 text-[11px] leading-relaxed text-[#A89F91]">
-          Shared staff workspace — open to the whole team, no sign-in.
-        </p>
+
+        <div
+          className="mt-3 flex items-center gap-3 rounded-xl border border-[#2E2520] bg-[#342C26]/50 p-3"
+          data-testid="sidebar-user-chip"
+        >
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#D97757]/15 font-heading text-sm font-semibold text-[#D97757]">
+            {initials(user.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-[#F5EFE6]">{user.name}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#A89F91]">
+              {user.role === "admin" ? "Administrator" : "Team"}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Sign out"
+            data-testid="logout-button"
+            onClick={handleLogout}
+            className="flex-none text-[#A89F91] hover:text-[#F5EFE6]"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </aside>
   );

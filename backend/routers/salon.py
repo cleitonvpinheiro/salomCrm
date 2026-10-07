@@ -1,11 +1,12 @@
 """Salon CRM routes: stylist roster, client book, per-client notes, workspace stats."""
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from lib.dates import today_iso
+from lib.dates import normalize_doc_dt as _normalize_dt, today_iso
+from routers.auth import require_admin, require_user
 from lib.db import db
 from models.salon import (
     NOTE_KINDS,
@@ -22,7 +23,7 @@ from models.salon import (
     utcnow,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_user)])
 
 RECALL_DAYS = 56  # no visit logged in 8 weeks → due for a recall
 
@@ -60,13 +61,6 @@ def _days_since(iso_date: str | None) -> int | None:
     return (today - visited).days
 
 
-def _normalize_dt(doc: dict, key: str = "created_at") -> None:
-    """Motor hands back naive datetimes — re-anchor to UTC before serialising."""
-    value = doc.get(key)
-    if isinstance(value, datetime) and value.tzinfo is None:
-        doc[key] = value.replace(tzinfo=timezone.utc)
-
-
 def _client_read(doc: dict, stylists: dict[str, dict], note_count: int) -> ClientRead:
     _normalize_dt(doc)
     stylist = stylists.get(doc.get("stylist_id") or "")
@@ -82,7 +76,7 @@ def _client_read(doc: dict, stylists: dict[str, dict], note_count: int) -> Clien
 async def _stylist_read(doc: dict) -> Stylist:
     _normalize_dt(doc)
     n = await db.clients.count_documents({"stylist_id": doc["id"]})
-    return Stylist(**doc, client_count=n)
+    return Stylist(**{**doc, "client_count": n})
 
 
 async def _validate_stylist(stylist_id: str | None) -> None:
@@ -100,18 +94,22 @@ async def list_stylists():
     out = []
     for d in docs:
         _normalize_dt(d)
-        out.append(Stylist(**d, client_count=counts.get(d["id"], 0)))
+        out.append(Stylist(**{**d, "client_count": counts.get(d["id"], 0)}))
     return out
 
 
-@router.post("/stylists", response_model=Stylist, status_code=201)
+@router.post(
+    "/stylists", response_model=Stylist, status_code=201, dependencies=[Depends(require_admin)]
+)
 async def create_stylist(input: StylistCreate):
     obj = Stylist(**input.model_dump())
-    await db.stylists.insert_one(obj.model_dump())
-    return Stylist(**obj.model_dump(), client_count=0)
+    await db.stylists.insert_one(obj.model_dump(exclude={"client_count"}))
+    return obj
 
 
-@router.put("/stylists/{stylist_id}", response_model=Stylist)
+@router.put(
+    "/stylists/{stylist_id}", response_model=Stylist, dependencies=[Depends(require_admin)]
+)
 async def update_stylist(stylist_id: str, input: StylistUpdate):
     doc = await db.stylists.find_one({"id": stylist_id})
     if not doc:
@@ -123,7 +121,7 @@ async def update_stylist(stylist_id: str, input: StylistUpdate):
     return await _stylist_read(doc)
 
 
-@router.delete("/stylists/{stylist_id}")
+@router.delete("/stylists/{stylist_id}", dependencies=[Depends(require_admin)])
 async def delete_stylist(stylist_id: str):
     res = await db.stylists.delete_one({"id": stylist_id})
     if res.deleted_count == 0:

@@ -14,8 +14,11 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
 
-# Salon CRM routes (stylists, clients, notes, stats)
+# Salon CRM routes
 from routers.salon import router as salon_router
+from routers.auth import router as auth_router
+from routers.services import router as services_router
+from routers.appointments import router as appointments_router
 
 
 # Startup runs before the yield, shutdown after it. Add your own setup/teardown here.
@@ -32,6 +35,9 @@ app = FastAPI(lifespan=lifespan)
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 api_router.include_router(salon_router)
+api_router.include_router(auth_router)
+api_router.include_router(services_router)
+api_router.include_router(appointments_router)
 
 
 # Add your routes to the router instead of directly to app

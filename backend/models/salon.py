@@ -151,3 +151,91 @@ class Stats(BaseModel):
     visits_this_month: int
     recall_due: int
     unassigned: int
+
+
+# ---- Services (admin-managed catalogue; appointments reference them) ----
+
+
+class ServiceCreate(BaseModel):
+    name: str
+    description: str | None = None
+    duration_min: int = 30
+    price: float = 0.0
+    active: bool = True
+
+
+class ServiceUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    duration_min: int | None = None
+    price: float | None = None
+    active: bool | None = None
+
+
+class Service(ServiceCreate):
+    id: str = Field(default_factory=new_id)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+# ---- Appointments (the agenda) ----
+
+APPT_STATUSES = ("scheduled", "completed", "cancelled")
+
+
+class AppointmentCreate(BaseModel):
+    client_id: str
+    stylist_id: str | None = None
+    service_id: str
+    date: str  # YYYY-MM-DD, salon wall-clock
+    time: str  # HH:MM
+    notes: str | None = None
+
+    @field_validator("date")
+    @classmethod
+    def _date_ok(cls, v: str) -> str:
+        datetime.strptime(v, "%Y-%m-%d")
+        return v
+
+    @field_validator("time")
+    @classmethod
+    def _time_ok(cls, v: str) -> str:
+        return datetime.strptime(v, "%H:%M").strftime("%H:%M")
+
+
+class AppointmentUpdate(BaseModel):
+    client_id: str | None = None
+    stylist_id: str | None = None
+    service_id: str | None = None
+    date: str | None = None
+    time: str | None = None
+    notes: str | None = None
+
+    @field_validator("date")
+    @classmethod
+    def _date_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        datetime.strptime(v, "%Y-%m-%d")
+        return v
+
+    @field_validator("time")
+    @classmethod
+    def _time_ok(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        return datetime.strptime(v, "%H:%M").strftime("%H:%M")
+
+
+class Appointment(AppointmentCreate):
+    id: str = Field(default_factory=new_id)
+    status: str = "scheduled"
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class AppointmentRead(Appointment):
+    client_name: str | None = None
+    stylist_name: str | None = None
+    service_name: str | None = None
+    service_price: float = 0.0
+    service_duration_min: int = 0

@@ -45,3 +45,22 @@ async def aclient():
 
 
 # --- app-specific fixtures below this line ---
+
+ADMIN_CREDS = {"email": "admin@atelier.com", "password": "atelier123"}
+STAFF_CREDS = {"email": "marina@atelier.com", "password": "atelier123"}
+
+
+@pytest.fixture
+def admin_client():
+    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+        r = c.post("/auth/login", json=ADMIN_CREDS)
+        assert r.status_code == 200, r.text
+        yield c
+
+
+@pytest.fixture
+def staff_client():
+    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+        r = c.post("/auth/login", json=STAFF_CREDS)
+        assert r.status_code == 200, r.text
+        yield c

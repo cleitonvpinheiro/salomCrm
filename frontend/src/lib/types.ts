@@ -48,3 +48,37 @@ export interface Stats {
   recall_due: number;
   unassigned: number;
 }
+
+// ---- Services (mirrors backend Service / ServiceCreate / ServiceUpdate) ----
+
+export interface Service {
+  id: string;
+  name: string;
+  description: string | null;
+  duration_min: number;
+  price: number;
+  active: boolean;
+  created_at: string;
+}
+
+// ---- Appointments (mirrors backend AppointmentRead) ----
+
+export type AppointmentStatus = "scheduled" | "completed" | "cancelled";
+
+export interface Appointment {
+  id: string;
+  client_id: string;
+  stylist_id: string | null;
+  service_id: string;
+  date: string;
+  time: string;
+  notes: string | null;
+  status: AppointmentStatus;
+  created_at: string;
+  created_by: string;
+  client_name: string | null;
+  stylist_name: string | null;
+  service_name: string | null;
+  service_price: number;
+  service_duration_min: number;
+}
