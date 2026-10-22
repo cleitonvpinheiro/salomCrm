@@ -5,6 +5,7 @@ export interface SessionUser {
   name: string;
   email: string;
   role: "admin" | "staff";
+  tenant_slug: string;
 }
 
 export const UserContext = createContext<SessionUser | null>(null);

@@ -8,11 +8,48 @@ export function fetchSessionUser() {
   return apiGet<SessionUser>("/auth/me");
 }
 
-// The backend sets the httpOnly session cookie on the login response; the react-query
-// cache is invalidated so every signed-in query refetches under the new session.
-export async function login(email: string, password: string) {
-  const user = await apiPost<SessionUser>("/auth/login", { email, password });
-  await queryClient.invalidateQueries();
+export function fetchPlatformUser() {
+  return apiGet<PlatformUser>("/platform/auth/me");
+}
+
+export function requestPasswordReset(input: {
+  email: string;
+  account_type: "tenant" | "platform";
+  tenant_slug?: string;
+}) {
+  return apiPost<{ message: string }>("/auth/password/forgot", input);
+}
+
+export function resetPassword(token: string, password: string) {
+  return apiPost<{ message: string }>("/auth/password/reset", { token, password });
+}
+
+export function changePlatformPassword(currentPassword: string, newPassword: string) {
+  return apiPost<{ message: string }>("/platform/auth/password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}
+
+export interface PlatformUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export async function login(tenantSlug: string, email: string, password: string) {
+  const user = await apiPost<SessionUser>("/auth/login", {
+    tenant_slug: tenantSlug,
+    email,
+    password,
+  });
+  queryClient.clear();
+  return user;
+}
+
+export async function platformLogin(email: string, password: string) {
+  const user = await apiPost<PlatformUser>("/platform/auth/login", { email, password });
+  queryClient.clear();
   return user;
 }
 
@@ -21,6 +58,14 @@ export async function login(email: string, password: string) {
 export async function logout() {
   try {
     await apiPost<{ ok: boolean }>("/auth/logout");
+  } finally {
+    queryClient.clear();
+  }
+}
+
+export async function platformLogout() {
+  try {
+    await apiPost<{ ok: boolean }>("/platform/auth/logout");
   } finally {
     queryClient.clear();
   }

@@ -46,7 +46,7 @@ async def update_service(service_id: str, input: ServiceUpdate):
 
 @router.delete("/services/{service_id}", dependencies=[Depends(require_admin)])
 async def delete_service(service_id: str):
-    res = await db.services.delete_one({"id": service_id})
-    if res.deleted_count == 0:
+    res = await db.services.update_one({"id": service_id}, {"$set": {"active": False}})
+    if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="service not found")
     return {"ok": True}

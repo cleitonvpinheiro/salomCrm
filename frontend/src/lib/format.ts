@@ -13,22 +13,23 @@ export function formatDate(iso: string | null | undefined): string {
 export type VisitTone = "none" | "recent" | "ok" | "recall";
 
 export interface VisitMeta {
-  label: string;
+  labelKey: string;
   tone: VisitTone;
+  params?: Record<string, number>;
 }
 
 /** Relative "last visit" wording. Recall threshold matches RECALL_DAYS (56) server-side. */
 export function visitMeta(days: number | null | undefined): VisitMeta {
   if (days === null || days === undefined) {
-    return { label: "No visit logged", tone: "none" };
+    return { labelKey: "No visit logged", tone: "none" };
   }
-  if (days === 0) return { label: "Visited today", tone: "recent" };
-  if (days === 1) return { label: "Yesterday", tone: "recent" };
-  if (days <= 20) return { label: `${days} days ago`, tone: "recent" };
+  if (days === 0) return { labelKey: "Visited today", tone: "recent" };
+  if (days === 1) return { labelKey: "Yesterday", tone: "recent" };
+  if (days <= 20) return { labelKey: "{days} days ago", tone: "recent", params: { days } };
   const weeks = Math.round(days / 7);
-  const base = weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
-  if (days <= 56) return { label: base, tone: "ok" };
-  return { label: `${base} · recall due`, tone: "recall" };
+  if (weeks === 1) return { labelKey: "1 week ago", tone: "ok" };
+  if (days <= 56) return { labelKey: "{weeks} weeks ago", tone: "ok", params: { weeks } };
+  return { labelKey: "{weeks} weeks ago · recall due", tone: "recall", params: { weeks } };
 }
 
 /** Warm chip colours per visit tone (design guidelines palette). */

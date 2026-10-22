@@ -4,9 +4,10 @@ Run: cd /app/backend && python seed.py
 """
 
 import asyncio
+import os
 from datetime import datetime, timedelta, timezone
 
-from lib.db import db, ensure_indexes
+from lib.db import db, ensure_default_tenant, ensure_indexes, tenant_scope
 from routers.auth import hash_password
 
 AVATAR_ELENA = "https://images.unsplash.com/photo-1607503873903-c5e95f80d7b9?crop=entropy&cs=srgb&fm=jpg&q=85"
@@ -157,8 +158,15 @@ def ts_days_ago(days: int, hour: int = 10) -> datetime:
 
 
 async def main() -> None:
-    await ensure_indexes()
+    if os.environ.get("APP_ENV", "development").strip().lower() == "production":
+        raise RuntimeError("Demo data seeding is disabled in production")
+    await ensure_indexes(migrate_legacy_indexes=True, strict=True)
+    tenant_id = await ensure_default_tenant(migrate_legacy_data=True)
+    with tenant_scope(tenant_id):
+        await seed_tenant_data()
 
+
+async def seed_tenant_data() -> None:
     # --- users (admin + staff, both with the demo password) ---
     if await db.users.count_documents({}) == 0:
         await db.users.insert_many(

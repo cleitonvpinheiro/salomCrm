@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiPost, apiPut } from "@/lib/api";
 import type { Stylist } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -39,6 +40,7 @@ interface StylistFormModalProps {
 }
 
 export default function StylistFormModal({ open, onOpenChange, stylist }: StylistFormModalProps) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -69,10 +71,14 @@ export default function StylistFormModal({ open, onOpenChange, stylist }: Stylis
       qc.invalidateQueries({ queryKey: ["stylists"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
-      toast.success(stylist ? `${saved.name} updated` : `${saved.name} joined the roster`);
+      toast.success(
+        stylist
+          ? t("{name} updated", { name: saved.name })
+          : t("{name} joined the roster", { name: saved.name })
+      );
       onOpenChange(false);
     },
-    onError: () => toast.error("Could not save the stylist — check the fields and try again"),
+    onError: () => toast.error(t("Could not save the stylist — check the fields and try again")),
   });
 
   return (
@@ -80,12 +86,12 @@ export default function StylistFormModal({ open, onOpenChange, stylist }: Stylis
       <DialogContent className="rounded-xl sm:max-w-md" data-testid="stylist-form-dialog">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
-            {stylist ? "Edit stylist" : "New stylist"}
+            {stylist ? t("Edit stylist") : t("New stylist")}
           </DialogTitle>
           <DialogDescription>
             {stylist
-              ? "Update the profile, colour tag and floor status."
-              : "Add a stylist to the roster — clients can be assigned afterwards."}
+              ? t("Update the profile, colour tag and floor status.")
+              : t("Add a stylist to the roster — clients can be assigned afterwards.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -93,44 +99,44 @@ export default function StylistFormModal({ open, onOpenChange, stylist }: Stylis
           onSubmit={(e) => {
             e.preventDefault();
             if (name.trim().length === 0) {
-              toast.error("A name is required");
+              toast.error(t("A name is required"));
               return;
             }
             mutation.mutate();
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="stylist-name">Name</Label>
+            <Label htmlFor="stylist-name">{t("Name")}</Label>
             <Input
               id="stylist-name"
               data-testid="stylist-name-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Elena Vance"
+              placeholder={t("e.g. Elena Vance")}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="stylist-title">Specialty / title</Label>
+            <Label htmlFor="stylist-title">{t("Specialty / title")}</Label>
             <Input
               id="stylist-title"
               data-testid="stylist-title-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Senior Master Stylist · Balayage"
+              placeholder={t("e.g. Senior Master Stylist · Balayage")}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="stylist-color">Colour tag</Label>
+            <Label htmlFor="stylist-color">{t("Colour tag")}</Label>
             <Select value={color} onValueChange={(v) => setColor(v)}>
               <SelectTrigger id="stylist-color" data-testid="stylist-color-select" className="w-full">
-                <SelectValue>{() => COLOR_OPTIONS.find((c) => c.value === color)?.label ?? "Colour"}</SelectValue>
+                <SelectValue>{() => t(COLOR_OPTIONS.find((c) => c.value === color)?.label ?? "Colour")}</SelectValue>
               </SelectTrigger>
               <SelectContent data-testid="stylist-color-options">
                 {COLOR_OPTIONS.map((c) => (
                   <SelectItem key={c.value} value={c.value}>
                     <span className="flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.value }} />
-                      {c.label}
+                      {t(c.label)}
                     </span>
                   </SelectItem>
                 ))}
@@ -145,7 +151,7 @@ export default function StylistFormModal({ open, onOpenChange, stylist }: Stylis
               onCheckedChange={(c) => setActive(c === true)}
             />
             <Label htmlFor="stylist-active" className="text-sm font-normal text-stone-700">
-              Active on the floor
+              {t("Active on the floor")}
             </Label>
           </div>
           <DialogFooter>
@@ -155,10 +161,10 @@ export default function StylistFormModal({ open, onOpenChange, stylist }: Stylis
               data-testid="stylist-form-cancel"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={mutation.isPending} data-testid="save-stylist-submit">
-              {mutation.isPending ? "Saving…" : stylist ? "Save changes" : "Add stylist"}
+              {mutation.isPending ? t("Saving…") : stylist ? t("Save changes") : t("Add stylist")}
             </Button>
           </DialogFooter>
         </form>

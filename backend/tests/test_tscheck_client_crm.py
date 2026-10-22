@@ -1,4 +1,4 @@
-"""Criterion: Existing client CRM still works end to end (create/update/delete + search/filter)."""
+"""Criterion: Client CRM create/update/archive/restore and search/filter workflows."""
 import uuid
 
 
@@ -40,12 +40,34 @@ def test_client_crud_lifecycle(admin_client):
     r_notes_list = admin_client.get(f"/clients/{client_id}/notes")
     assert any(n["body"] == "tscheck note fixture" for n in r_notes_list.json())
 
-    # delete
+    # archive while preserving notes and appointment references
     r_del = admin_client.delete(f"/clients/{client_id}")
     assert r_del.status_code == 200, r_del.text
 
     r_search_after = admin_client.get("/clients", params={"search": name})
     assert all(c["id"] != client_id for c in r_search_after.json())
+    archived = admin_client.get(f"/clients/{client_id}")
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["active"] is False
+    assert any(
+        n["body"] == "tscheck note fixture"
+        for n in admin_client.get(f"/clients/{client_id}/notes").json()
+    )
+
+    r_archived = admin_client.get("/clients", params={"search": name, "archived": True})
+    assert r_archived.status_code == 200
+    assert any(c["id"] == client_id for c in r_archived.json())
+
+    r_restore = admin_client.put(f"/clients/{client_id}", json={"active": True})
+    assert r_restore.status_code == 200, r_restore.text
+    assert r_restore.json()["active"] is True
+    assert any(
+        c["id"] == client_id
+        for c in admin_client.get("/clients", params={"search": name}).json()
+    )
+
+    # Leave the test record archived after verifying restore.
+    assert admin_client.delete(f"/clients/{client_id}").status_code == 200
 
 
 def test_stylist_filter_includes_unassigned(admin_client):

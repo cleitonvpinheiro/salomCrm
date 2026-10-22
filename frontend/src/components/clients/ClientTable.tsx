@@ -1,6 +1,7 @@
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import type { Client } from "@/lib/types";
 import { formatDate, initials, toneClass, visitMeta } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -17,9 +18,18 @@ interface ClientTableProps {
   onView: (client: Client) => void;
   onEdit: (client: Client) => void;
   onDelete: (client: Client) => void;
+  onRestore: (client: Client) => void;
 }
 
-export default function ClientTable({ clients, loading, onView, onEdit, onDelete }: ClientTableProps) {
+export default function ClientTable({
+  clients,
+  loading,
+  onView,
+  onEdit,
+  onDelete,
+  onRestore,
+}: ClientTableProps) {
+  const { t } = useI18n();
   return (
     <div
       className="overflow-hidden rounded-2xl border border-[#E5DCD0] bg-white shadow-[0_1px_3px_0_rgba(44,30,20,0.04),0_6px_16px_-4px_rgba(44,30,20,0.06)]"
@@ -28,12 +38,12 @@ export default function ClientTable({ clients, loading, onView, onEdit, onDelete
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="font-mono text-xs uppercase tracking-wider">Client</TableHead>
-            <TableHead className="font-mono text-xs uppercase tracking-wider">Stylist</TableHead>
-            <TableHead className="font-mono text-xs uppercase tracking-wider">Last visit</TableHead>
-            <TableHead className="font-mono text-xs uppercase tracking-wider">Notes</TableHead>
+            <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Client")}</TableHead>
+            <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Stylist")}</TableHead>
+            <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Last visit")}</TableHead>
+            <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Notes")}</TableHead>
             <TableHead className="text-right font-mono text-xs uppercase tracking-wider">
-              Actions
+              {t("Actions")}
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -61,9 +71,9 @@ export default function ClientTable({ clients, loading, onView, onEdit, onDelete
           ) : clients.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={5} className="py-14 text-center">
-                <p className="font-heading text-lg text-stone-800">No clients found</p>
+                <p className="font-heading text-lg text-stone-800">{t("No clients found")}</p>
                 <p className="mt-1 text-sm text-stone-500">
-                  Try another search, clear the stylist filter, or add someone new to the book.
+                  {t("Try a different search or filter.")}
                 </p>
               </TableCell>
             </TableRow>
@@ -106,7 +116,7 @@ export default function ClientTable({ clients, loading, onView, onEdit, onDelete
                         {c.stylist_name}
                       </span>
                     ) : (
-                      <span className="text-sm text-stone-400">Unassigned</span>
+                      <span className="text-sm text-stone-400">{t("Unassigned")}</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -115,7 +125,7 @@ export default function ClientTable({ clients, loading, onView, onEdit, onDelete
                       <span
                         className={`w-fit rounded-full px-2 py-0.5 text-[11px] font-medium ${toneClass(meta.tone)}`}
                       >
-                        {meta.label}
+                        {t(meta.labelKey, meta.params ?? {})}
                       </span>
                     </div>
                   </TableCell>
@@ -133,25 +143,39 @@ export default function ClientTable({ clients, loading, onView, onEdit, onDelete
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${c.name}`}
-                        data-testid={`edit-client-${c.id}`}
-                        onClick={() => onEdit(c)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Delete ${c.name}`}
-                        data-testid={`delete-client-${c.id}`}
-                        className="text-stone-400 hover:text-destructive"
-                        onClick={() => onDelete(c)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {c.active ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Edit ${c.name}`}
+                          data-testid={`edit-client-${c.id}`}
+                          onClick={() => onEdit(c)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                      {c.active ? (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Archive ${c.name}`}
+                          data-testid={`delete-client-${c.id}`}
+                          className="text-stone-400 hover:text-destructive"
+                          onClick={() => onDelete(c)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Restore ${c.name}`}
+                          data-testid={`restore-client-${c.id}`}
+                          onClick={() => onRestore(c)}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

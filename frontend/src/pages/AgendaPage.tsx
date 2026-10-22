@@ -1,27 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Scissors, Trash2, X } from "lucide-react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
-import type { Appointment, AppointmentStatus, Stats } from "@/lib/types";
+import type { Appointment, AppointmentStatus, PageResult, Stats } from "@/lib/types";
 import { addMinutes, formatBRL } from "@/lib/format";
 import { useUser } from "@/lib/userContext";
+import { useI18n } from "@/lib/i18n";
 import AppShell from "@/components/layout/AppShell";
 import AppointmentFormModal from "@/components/agenda/AppointmentFormModal";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 
-const STATUS_META: Record<AppointmentStatus, { label: string; className: string }> = {
-  scheduled: { label: "Scheduled", className: "bg-[#F3ECE1] text-[#57534E]" },
-  completed: { label: "Completed", className: "bg-[#EBF4EE] text-[#235937]" },
-  cancelled: { label: "Cancelled", className: "bg-[#FDF2E9] text-[#9A4B1A]" },
+const STATUS_META: Record<AppointmentStatus, { labelKey: string; className: string }> = {
+  scheduled: { labelKey: "Scheduled", className: "bg-[#F3ECE1] text-[#57534E]" },
+  completed: { labelKey: "Completed", className: "bg-[#EBF4EE] text-[#235937]" },
+  cancelled: { labelKey: "Cancelled", className: "bg-[#FDF2E9] text-[#9A4B1A]" },
 };
 
 export default function AgendaPage() {
+  const { t, formatDate } = useI18n();
   const user = useUser();
   const qc = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Appointment | null>(null);
@@ -35,13 +38,21 @@ export default function AgendaPage() {
 
   const date = selectedDate ?? stats?.today ?? new Date().toISOString().slice(0, 10);
 
+  useEffect(() => {
+    setPage(1);
+  }, [date]);
+
   const apptsQuery = useQuery({
-    queryKey: ["appointments", date],
-    queryFn: () => apiGet<Appointment[]>(`/appointments?date=${date}`),
+    queryKey: ["appointments", date, page],
+    queryFn: () =>
+      apiGet<PageResult<Appointment>>(
+        `/appointments?date=${date}&page=${page}&page_size=50`
+      ),
     placeholderData: keepPreviousData,
     retry: false,
   });
-  const appts = apptsQuery.data ?? [];
+  const pageResult = apptsQuery.data;
+  const appts = pageResult?.items ?? [];
 
   const refreshAgenda = () => {
     qc.invalidateQueries({ queryKey: ["appointments"] });
@@ -53,30 +64,31 @@ export default function AgendaPage() {
 
   const completeMutation = useMutation({
     mutationFn: (id: string) => apiPost<Appointment>(`/appointments/${id}/complete`),
-    onSuccess: (a) => {
+    onSuccess: () => {
       refreshAgenda();
-      toast.success(`Visit completed for ${a.client_name}`);
+      toast.success(t("Appointment completed"));
     },
-    onError: () => toast.error("Could not complete the appointment"),
+    onError: () => toast.error(t("Could not complete the appointment")),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => apiPost<Appointment>(`/appointments/${id}/cancel`),
     onSuccess: () => {
       refreshAgenda();
-      toast.success("Appointment cancelled");
+      toast.success(t("Appointment cancelled"));
     },
-    onError: () => toast.error("Could not cancel the appointment"),
+    onError: () => toast.error(t("Could not cancel the appointment")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/appointments/${id}`),
     onSuccess: () => {
       refreshAgenda();
-      toast.success("Appointment removed from the agenda");
+      if (appts.length === 1 && page > 1) setPage((current) => current - 1);
+      toast.success(t("Appointment removed"));
       setDeleteTarget(null);
     },
-    onError: () => toast.error("Could not remove the appointment"),
+    onError: () => toast.error(t("Could not remove the appointment")),
   });
 
   const weekStart = startOfWeek(parseISO(date), { weekStartsOn: 1 });
@@ -89,11 +101,11 @@ export default function AgendaPage() {
 
   return (
     <AppShell
-      title="Agenda"
-      subtitle="Bookings by day — completing a visit stamps the client's last visit"
+      title={t("Agenda")}
+      subtitle={t("Bookings by day — completing a visit stamps the client's last visit")}
       actions={
         <Button data-testid="new-appointment-button" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> New appointment
+          <Plus className="h-4 w-4" /> {t("New appointment")}
         </Button>
       }
     >
@@ -105,7 +117,7 @@ export default function AgendaPage() {
               variant="outline"
               size="icon-sm"
               className="bg-white"
-              aria-label="Previous week"
+              aria-label={t("Previous")}
               data-testid="agenda-prev-week"
               onClick={() => setSelectedDate(format(addDays(parseISO(date), -7), "yyyy-MM-dd"))}
             >
@@ -118,13 +130,13 @@ export default function AgendaPage() {
               data-testid="agenda-today-button"
               onClick={() => setSelectedDate(null)}
             >
-              Today
+              {t("Today")}
             </Button>
             <Button
               variant="outline"
               size="icon-sm"
               className="bg-white"
-              aria-label="Next week"
+              aria-label={t("Next")}
               data-testid="agenda-next-week"
               onClick={() => setSelectedDate(format(addDays(parseISO(date), 7), "yyyy-MM-dd"))}
             >
@@ -135,11 +147,11 @@ export default function AgendaPage() {
             className="font-heading text-xl font-semibold text-stone-900"
             data-testid="agenda-day-title"
           >
-            {format(parseISO(date), "EEEE, d MMM yyyy")}
+            {formatDate(parseISO(date), { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
             <span className="ml-2 font-mono text-xs font-normal uppercase tracking-wider text-stone-500">
               {apptsQuery.isLoading
                 ? ""
-                : `${appts.length} appointment${appts.length === 1 ? "" : "s"}`}
+                : `${pageResult?.total ?? 0} ${t(pageResult?.total === 1 ? "appointment" : "appointments")}`}
             </span>
           </h2>
         </div>
@@ -159,7 +171,7 @@ export default function AgendaPage() {
                 }`}
               >
                 <span className="font-mono text-[10px] uppercase tracking-wider opacity-70">
-                  {format(d, "EEE")}
+                  {formatDate(d, { weekday: "short" })}
                 </span>
                 <span className="font-heading text-lg font-semibold">{format(d, "d")}</span>
               </button>
@@ -173,9 +185,9 @@ export default function AgendaPage() {
             className="rounded-2xl border border-[#E5DCD0] bg-white p-10 text-center"
             data-testid="agenda-error-state"
           >
-            <p className="font-heading text-lg text-stone-800">The agenda is out of reach</p>
+            <p className="font-heading text-lg text-stone-800">{t("The agenda is out of reach")}</p>
             <p className="mt-1 text-sm text-stone-500">
-              We couldn't load the bookings for this day.
+              {t("We couldn't load the bookings for this day.")}
             </p>
             <Button
               variant="outline"
@@ -183,7 +195,7 @@ export default function AgendaPage() {
               data-testid="agenda-retry-button"
               onClick={() => apptsQuery.refetch()}
             >
-              Try again
+              {t("Try again")}
             </Button>
           </div>
         ) : apptsQuery.isLoading ? (
@@ -197,12 +209,12 @@ export default function AgendaPage() {
             className="rounded-2xl border border-dashed border-[#E7DFD5] bg-white p-12 text-center"
             data-testid="agenda-empty-state"
           >
-            <p className="font-heading text-lg text-stone-800">Nothing booked this day</p>
+            <p className="font-heading text-lg text-stone-800">{t("Nothing booked this day")}</p>
             <p className="mt-1 text-sm text-stone-500">
-              Pick another day on the strip above, or book the first appointment.
+              {t("Pick another day on the strip above, or book the first appointment.")}
             </p>
             <Button className="mt-4" data-testid="agenda-empty-new-appointment" onClick={openCreate}>
-              <Plus className="h-4 w-4" /> New appointment
+              <Plus className="h-4 w-4" /> {t("New appointment")}
             </Button>
           </div>
         ) : (
@@ -229,7 +241,7 @@ export default function AgendaPage() {
                         {a.client_name ?? "—"}
                       </p>
                       <p className="truncate text-xs text-stone-500">
-                        {a.service_name ?? "Service"} · {formatBRL(a.service_price)}
+                        {a.service_name ?? t("Service")} · {formatBRL(a.service_price)}
                       </p>
                       {a.stylist_name ? (
                         <p className="mt-0.5 flex items-center gap-1.5 text-xs text-stone-500">
@@ -247,7 +259,7 @@ export default function AgendaPage() {
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${sm.className}`}
                       data-testid={`appointment-status-${a.id}`}
                     >
-                      {sm.label}
+                      {t(sm.labelKey)}
                     </span>
                     {a.status === "scheduled" && (
                       <>
@@ -259,7 +271,7 @@ export default function AgendaPage() {
                           disabled={completeMutation.isPending}
                           onClick={() => completeMutation.mutate(a.id)}
                         >
-                          <Check className="h-4 w-4" /> Complete
+                          <Check className="h-4 w-4" /> {t("Complete")}
                         </Button>
                         <Button
                           size="sm"
@@ -268,7 +280,7 @@ export default function AgendaPage() {
                           disabled={cancelMutation.isPending}
                           onClick={() => cancelMutation.mutate(a.id)}
                         >
-                          <X className="h-4 w-4" /> Cancel
+                          <X className="h-4 w-4" /> {t("Cancel")}
                         </Button>
                       </>
                     )}
@@ -276,7 +288,7 @@ export default function AgendaPage() {
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Edit appointment"
+                        aria-label={t("Edit appointment")}
                         data-testid={`edit-appointment-${a.id}`}
                         onClick={() => {
                           setEditing(a);
@@ -290,7 +302,7 @@ export default function AgendaPage() {
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Remove appointment"
+                        aria-label={t("Remove appointment")}
                         data-testid={`delete-appointment-${a.id}`}
                         className="text-stone-400 hover:text-destructive"
                         onClick={() => setDeleteTarget(a)}
@@ -304,6 +316,43 @@ export default function AgendaPage() {
             })}
           </div>
         )}
+        {pageResult && pageResult.total > pageResult.page_size ? (
+          <div
+            className="flex items-center justify-between gap-3"
+            data-testid="agenda-pagination"
+          >
+            <p className="text-sm text-stone-500">
+              {t("Showing {from}–{to} of {total}", {
+                from: (pageResult.page - 1) * pageResult.page_size + 1,
+                to: (pageResult.page - 1) * pageResult.page_size + appts.length,
+                total: pageResult.total,
+              })}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageResult.page === 1 || apptsQuery.isFetching}
+                data-testid="agenda-previous-page"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                {t("Previous")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={
+                  pageResult.page * pageResult.page_size >= pageResult.total ||
+                  apptsQuery.isFetching
+                }
+                data-testid="agenda-next-page"
+                onClick={() => setPage((current) => current + 1)}
+              >
+                {t("Next")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <AppointmentFormModal
@@ -317,9 +366,9 @@ export default function AgendaPage() {
         onOpenChange={(o) => {
           if (!o) setDeleteTarget(null);
         }}
-        title={`Remove the ${deleteTarget?.time ?? ""} booking?`}
-        description="This deletes the appointment from the agenda. The client's history stays untouched."
-        confirmLabel="Remove"
+        title={t("Remove the {time} booking?", { time: deleteTarget?.time ?? "" })}
+        description={t("This deletes the appointment from the agenda. The client's history stays untouched.")}
+        confirmLabel={t("Remove")}
         pending={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         confirmTestId="confirm-delete-appointment-btn"

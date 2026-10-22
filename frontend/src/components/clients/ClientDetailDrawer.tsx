@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CalendarCheck, Cake, Mail, Pencil, Phone, Plus, Trash2 } from "lucide-react";
-import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import type { Client, Note, NoteKind, Stylist } from "@/lib/types";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+import type { Client, Note, NoteKind, PageResult, Stylist } from "@/lib/types";
 import { formatDate, initials, toneClass, visitMeta } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/lib/i18n";
 import NotesTimeline from "@/components/clients/NotesTimeline";
 
 const KIND_LABELS: Record<NoteKind, string> = {
@@ -46,6 +47,7 @@ export default function ClientDetailDrawer({
   onEdit,
   onDeleteRequest,
 }: ClientDetailDrawerProps) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [noteBody, setNoteBody] = useState("");
   const [noteKind, setNoteKind] = useState<NoteKind>("general");
@@ -64,12 +66,22 @@ export default function ClientDetailDrawer({
     enabled,
     retry: false,
   });
-  const { data: notes, isLoading: notesLoading } = useQuery({
+  const notesQuery = useInfiniteQuery({
     queryKey: ["notes", clientId],
-    queryFn: () => apiGet<Note[]>(`/clients/${clientId}/notes`),
+    queryFn: ({ pageParam }) =>
+      apiGet<PageResult<Note>>(
+        `/clients/${clientId}/notes?page=${pageParam}&page_size=20`
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.page_size < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
     enabled,
     retry: false,
   });
+  const notes = notesQuery.data?.pages.flatMap((result) => result.items) ?? [];
+  const notesLoading = notesQuery.isPending;
 
   const refreshClient = () => {
     qc.invalidateQueries({ queryKey: ["client", clientId] });
@@ -86,9 +98,13 @@ export default function ClientDetailDrawer({
     },
     onSuccess: (updated) => {
       refreshClient();
-      toast.success(updated.stylist_name ? `Reassigned to ${updated.stylist_name}` : "Stylist unassigned");
+      toast.success(
+        updated.stylist_name
+          ? t("Reassigned to {name}", { name: updated.stylist_name })
+          : t("Stylist unassigned")
+      );
     },
-    onError: () => toast.error("Could not reassign the stylist"),
+    onError: () => toast.error(t("Could not reassign the stylist")),
   });
 
   const addNote = useMutation({
@@ -103,24 +119,26 @@ export default function ClientDetailDrawer({
       setNoteBody("");
       setNoteKind("general");
       refreshClient();
-      toast.success("Note added");
+      toast.success(t("Note added"));
     },
-    onError: () => toast.error("Could not add the note"),
+    onError: () => toast.error(t("Could not add the note")),
   });
 
   const logVisit = useMutation({
     mutationFn: () => {
       if (!clientId) throw new Error("no client selected");
       return apiPost<Note>(`/clients/${clientId}/notes`, {
-        body: "Visit logged from the client book.",
+        body: t("Visit logged from the client book."),
         kind: "visit",
       });
     },
     onSuccess: () => {
       refreshClient();
-      toast.success(`Visit logged for ${client?.name ?? "client"}`);
+      toast.success(
+        t("Visit logged for {name}", { name: client?.name ?? t("client") })
+      );
     },
-    onError: () => toast.error("Could not log the visit"),
+    onError: () => toast.error(t("Could not log the visit")),
   });
 
   const meta = visitMeta(client?.days_since_visit);
@@ -134,7 +152,7 @@ export default function ClientDetailDrawer({
       >
         {!client ? (
           <div className="p-6 text-sm text-stone-500">
-            {isLoading ? "Loading client…" : "Select a client to see their history."}
+            {isLoading ? t("Loading client…") : t("Select a client to see their history.")}
           </div>
         ) : (
           <div className="flex min-h-full flex-col">
@@ -154,9 +172,11 @@ export default function ClientDetailDrawer({
                     {client.name}
                   </SheetTitle>
                   <SheetDescription>
-                    {client.stylist_name
-                      ? `Client of ${client.stylist_name}`
-                      : "No preferred stylist yet"}
+                    {!client.active
+                      ? t("Archived client — history is read-only")
+                      : client.stylist_name
+                        ? `Client of ${client.stylist_name}`
+                        : t("No preferred stylist yet")}
                   </SheetDescription>
                 </div>
               </div>
@@ -165,7 +185,7 @@ export default function ClientDetailDrawer({
                   className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${toneClass(meta.tone)}`}
                   data-testid="drawer-visit-badge"
                 >
-                  {meta.label}
+                  {t(meta.labelKey, meta.params)}
                 </span>
                 {client.tags.map((tag) => (
                   <span
@@ -204,7 +224,7 @@ export default function ClientDetailDrawer({
                   Hair profile
                 </h3>
                 <p className="text-sm text-stone-700">
-                  <span className="text-stone-500">Type:</span> {client.hair_type ?? "—"}
+                  <span className="text-stone-500">{t("Type:")}</span> {client.hair_type ?? "—"}
                 </p>
                 {client.formula && (
                   <div className="rounded-lg bg-[#F3ECE1] p-3 font-mono text-xs leading-relaxed text-[#57534E]">
@@ -220,12 +240,13 @@ export default function ClientDetailDrawer({
                 <Select
                   value={client.stylist_id ?? "none"}
                   onValueChange={(v) => reassign.mutate(v === "none" ? null : v)}
+                  disabled={!client.active || reassign.isPending}
                 >
                   <SelectTrigger data-testid="drawer-stylist-select" className="w-full bg-white">
-                    <SelectValue>{() => client.stylist_name ?? "Unassigned"}</SelectValue>
+                    <SelectValue>{() => client.stylist_name ?? t("Unassigned")}</SelectValue>
                   </SelectTrigger>
                   <SelectContent data-testid="drawer-stylist-options">
-                    <SelectItem value="none">Unassigned</SelectItem>
+                    <SelectItem value="none">{t("Unassigned")}</SelectItem>
                     {(stylists ?? [])
                       .filter((s) => s.active || s.id === client.stylist_id)
                       .map((s) => (
@@ -251,17 +272,19 @@ export default function ClientDetailDrawer({
                   <p className="text-sm font-medium text-stone-900">
                     {formatDate(client.last_visit)}
                   </p>
-                  <p className="text-xs text-stone-500">{meta.label}</p>
+                  <p className="text-xs text-stone-500">{t(meta.labelKey, meta.params)}</p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => logVisit.mutate()}
-                  disabled={logVisit.isPending}
-                  data-testid="log-visit-btn"
-                >
-                  <CalendarCheck className="h-4 w-4" />
-                  {logVisit.isPending ? "Logging…" : "Log today"}
-                </Button>
+                {client.active ? (
+                  <Button
+                    size="sm"
+                    onClick={() => logVisit.mutate()}
+                    disabled={logVisit.isPending}
+                    data-testid="log-visit-btn"
+                  >
+                    <CalendarCheck className="h-4 w-4" />
+                    {logVisit.isPending ? t("Logging…") : t("Log today")}
+                  </Button>
+                ) : null}
               </section>
 
               <section className="grid gap-3">
@@ -274,70 +297,89 @@ export default function ClientDetailDrawer({
                     <div className="h-16 animate-pulse rounded-xl bg-[#F3ECE1]" />
                   </div>
                 ) : (
-                  <NotesTimeline notes={notes ?? []} />
+                  <NotesTimeline notes={notes} />
                 )}
-                <div className="grid gap-2 rounded-xl border border-[#E7DFD5] bg-[#FAF7F2] p-3">
-                  <Textarea
-                    data-testid="note-input"
-                    value={noteBody}
-                    onChange={(e) => setNoteBody(e.target.value)}
-                    placeholder="Add a note — formulas, preferences, allergies…"
-                    rows={3}
-                  />
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Select
-                      value={noteKind}
-                      onValueChange={(v) => setNoteKind(v as NoteKind)}
-                    >
-                      <SelectTrigger size="sm" data-testid="note-kind-select" className="w-40 bg-white">
-                        <SelectValue>{() => KIND_LABELS[noteKind]}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent data-testid="note-kind-options">
-                        {(Object.keys(KIND_LABELS) as NoteKind[]).map((k) => (
-                          <SelectItem key={k} value={k}>
-                            {KIND_LABELS[k]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={addNote.isPending}
-                      data-testid="add-note-btn"
-                      onClick={() => {
-                        if (noteBody.trim().length === 0) {
-                          toast.error("Write the note first");
-                          return;
-                        }
-                        addNote.mutate();
-                      }}
-                    >
-                      <Plus className="h-4 w-4" />
-                      {addNote.isPending ? "Adding…" : "Add note"}
-                    </Button>
+                {notesQuery.hasNextPage ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={notesQuery.isFetchingNextPage}
+                    data-testid="load-more-client-notes"
+                    onClick={() => notesQuery.fetchNextPage()}
+                  >
+                    {notesQuery.isFetchingNextPage ? t("Loading history…") : t("Load older notes")}
+                  </Button>
+                ) : null}
+                {client.active ? (
+                  <div className="grid gap-2 rounded-xl border border-[#E7DFD5] bg-[#FAF7F2] p-3">
+                    <Textarea
+                      data-testid="note-input"
+                      value={noteBody}
+                      onChange={(e) => setNoteBody(e.target.value)}
+                      placeholder={t("Add a note — formulas, preferences, allergies…")}
+                      rows={3}
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Select
+                        value={noteKind}
+                        onValueChange={(v) => setNoteKind(v as NoteKind)}
+                      >
+                        <SelectTrigger size="sm" data-testid="note-kind-select" className="w-40 bg-white">
+                          <SelectValue>{() => KIND_LABELS[noteKind]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent data-testid="note-kind-options">
+                          {(Object.keys(KIND_LABELS) as NoteKind[]).map((k) => (
+                            <SelectItem key={k} value={k}>
+                              {KIND_LABELS[k]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={addNote.isPending}
+                        data-testid="add-note-btn"
+                        onClick={() => {
+                          if (noteBody.trim().length === 0) {
+                            toast.error(t("Write the note first"));
+                            return;
+                          }
+                          addNote.mutate();
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                        {addNote.isPending ? t("Adding…") : t("Add note")}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </section>
             </div>
 
             <SheetFooter className="border-t border-[#EFE9DF]">
-              <Button
-                variant="outline"
-                onClick={() => onEdit(client)}
-                data-testid="edit-client-btn"
-              >
-                <Pencil className="h-4 w-4" /> Edit client
-              </Button>
-              <Button
-                variant="ghost"
-                className="text-destructive hover:bg-destructive/10"
-                onClick={() => onDeleteRequest(client)}
-                data-testid="delete-client-btn"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </Button>
+              {client.active ? (
+                <Button
+                  variant="outline"
+                  onClick={() => onEdit(client)}
+                  data-testid="edit-client-btn"
+                >
+                  <Pencil className="h-4 w-4" /> Edit client
+                </Button>
+              ) : null}
+              {client.active ? (
+                <Button
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => onDeleteRequest(client)}
+                  data-testid="delete-client-btn"
+                >
+                  <Trash2 className="h-4 w-4" /> Archive
+                </Button>
+              ) : null}
             </SheetFooter>
           </div>
         )}

@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useI18n } from "@/lib/i18n";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
+  pendingLabel?: string;
   pending?: boolean;
   onConfirm: () => void;
   confirmTestId: string;
@@ -25,10 +28,13 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel = "Delete",
+  cancelLabel,
+  pendingLabel,
   pending = false,
   onConfirm,
   confirmTestId,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid={`${confirmTestId}-dialog`}>
@@ -43,7 +49,7 @@ export default function ConfirmDialog({
             data-testid={`${confirmTestId}-cancel`}
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {cancelLabel ?? t("Cancel")}
           </Button>
           <Button
             type="button"
@@ -52,7 +58,7 @@ export default function ConfirmDialog({
             data-testid={confirmTestId}
             onClick={onConfirm}
           >
-            {pending ? "Removing…" : confirmLabel}
+            {pending ? (pendingLabel ?? t("Processing…")) : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

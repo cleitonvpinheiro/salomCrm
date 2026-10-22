@@ -6,11 +6,14 @@ file — add app-specific fixtures below the marker at the bottom.
 """
 
 import os
+from pathlib import Path
 
 import httpx
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 
+load_dotenv(Path(__file__).parent.parent / ".env")
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8001")
 API_URL = f"{BACKEND_URL}/api"
 
@@ -48,12 +51,13 @@ async def aclient():
 
 ADMIN_CREDS = {"email": "admin@atelier.com", "password": "atelier123"}
 STAFF_CREDS = {"email": "marina@atelier.com", "password": "atelier123"}
+TENANT_SLUG = os.environ.get("DEFAULT_TENANT_SLUG", "atelier")
 
 
 @pytest.fixture
 def admin_client():
     with httpx.Client(base_url=API_URL, timeout=30.0) as c:
-        r = c.post("/auth/login", json=ADMIN_CREDS)
+        r = c.post("/auth/login", json={**ADMIN_CREDS, "tenant_slug": TENANT_SLUG})
         assert r.status_code == 200, r.text
         yield c
 
@@ -61,6 +65,6 @@ def admin_client():
 @pytest.fixture
 def staff_client():
     with httpx.Client(base_url=API_URL, timeout=30.0) as c:
-        r = c.post("/auth/login", json=STAFF_CREDS)
+        r = c.post("/auth/login", json={**STAFF_CREDS, "tenant_slug": TENANT_SLUG})
         assert r.status_code == 200, r.text
         yield c

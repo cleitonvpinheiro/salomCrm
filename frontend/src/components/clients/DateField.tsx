@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { CalendarIcon, X } from "lucide-react";
+import { enUS, es, ptBR } from "date-fns/locale";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,8 +17,10 @@ interface DateFieldProps {
 
 // Popover + Calendar picker; the value stays an ISO "YYYY-MM-DD" string end to end.
 export default function DateField({ value, onChange, placeholder, testid, disableFuture }: DateFieldProps) {
+  const { locale } = useI18n();
   const [open, setOpen] = useState(false);
-  const label = value ? formatDateSafe(value) : (placeholder ?? "Pick a date");
+  const dateLocale = locale === "pt-BR" ? ptBR : locale === "es" ? es : enUS;
+  const label = value ? formatDateSafe(value, locale) : (placeholder ?? "Pick a date");
 
   return (
     <div className="flex items-center gap-2">
@@ -39,6 +43,7 @@ export default function DateField({ value, onChange, placeholder, testid, disabl
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
+            locale={dateLocale}
             selected={value ? new Date(`${value}T00:00:00`) : undefined}
             defaultMonth={value ? new Date(`${value}T00:00:00`) : undefined}
             disabled={disableFuture ? { after: new Date() } : undefined}
@@ -54,7 +59,7 @@ export default function DateField({ value, onChange, placeholder, testid, disabl
           type="button"
           variant="ghost"
           size="icon-xs"
-          aria-label="Clear date"
+          aria-label={locale === "pt-BR" ? "Limpar data" : locale === "es" ? "Borrar fecha" : "Clear date"}
           data-testid={`${testid}-clear`}
           onClick={() => onChange(null)}
         >
@@ -65,9 +70,13 @@ export default function DateField({ value, onChange, placeholder, testid, disabl
   );
 }
 
-function formatDateSafe(iso: string): string {
+function formatDateSafe(iso: string, locale: string): string {
   try {
-    return format(parseISO(iso), "d MMM yyyy");
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(parseISO(iso));
   } catch {
     return iso;
   }

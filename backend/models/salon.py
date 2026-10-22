@@ -82,6 +82,7 @@ class ClientUpdate(BaseModel):
     last_visit: str | None = None
     formula: str | None = None
     tags: list[str] | None = None
+    active: bool | None = None
 
     @field_validator("last_visit", "birthday")
     @classmethod
@@ -105,6 +106,7 @@ class ClientUpdate(BaseModel):
 class ClientRead(ClientCreate):
     id: str
     created_at: datetime
+    active: bool = True
     stylist_name: str | None = None
     stylist_color: str | None = None
     days_since_visit: int | None = None
@@ -151,6 +153,7 @@ class Stats(BaseModel):
     visits_this_month: int
     recall_due: int
     unassigned: int
+    archived_clients: int
 
 
 # ---- Services (admin-managed catalogue; appointments reference them) ----
@@ -159,16 +162,16 @@ class Stats(BaseModel):
 class ServiceCreate(BaseModel):
     name: str
     description: str | None = None
-    duration_min: int = 30
-    price: float = 0.0
+    duration_min: int = Field(default=30, gt=0, le=1440)
+    price: float = Field(default=0.0, ge=0)
     active: bool = True
 
 
 class ServiceUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    duration_min: int | None = None
-    price: float | None = None
+    duration_min: int | None = Field(default=None, gt=0, le=1440)
+    price: float | None = Field(default=None, ge=0)
     active: bool | None = None
 
 

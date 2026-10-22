@@ -1,4 +1,4 @@
-"""Criterion: Admin can create, edit and remove services."""
+"""Criterion: Admin can create, edit and archive services."""
 import uuid
 
 
@@ -34,12 +34,13 @@ def test_admin_service_crud_lifecycle(admin_client):
     assert updated["price"] == 250.0
     assert updated["duration_min"] == 60
 
-    # remove
+    # archive
     r_del = admin_client.delete(f"/services/{service_id}")
     assert r_del.status_code == 200, r_del.text
 
     r_list_after = admin_client.get("/services")
-    assert all(s["id"] != service_id for s in r_list_after.json())
+    archived = next(s for s in r_list_after.json() if s["id"] == service_id)
+    assert archived["active"] is False
 
 
 def test_staff_cannot_create_service(staff_client):

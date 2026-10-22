@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPut } from "@/lib/api";
-import type { Appointment, Client, Service, Stylist } from "@/lib/types";
+import { ApiError, apiGet, apiPost, apiPut } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import type { Appointment, Client, PageResult, Service, Stylist } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,14 +38,34 @@ export default function AppointmentFormModal({
   defaultDate,
   appointment,
 }: AppointmentFormModalProps) {
+  const { t } = useI18n();
   const qc = useQueryClient();
 
-  const { data: clients } = useQuery({
+  const clientsQuery = useInfiniteQuery({
     queryKey: ["clients", "name-all"],
-    queryFn: () => apiGet<Client[]>("/clients?sort_by=name"),
+    queryFn: ({ pageParam }) =>
+      apiGet<PageResult<Client>>(
+        `/clients?sort_by=name&page=${pageParam}&page_size=50`
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.page_size < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
     enabled: open,
     retry: false,
   });
+  const { data: selectedClient } = useQuery({
+    queryKey: ["client", appointment?.client_id],
+    queryFn: () => apiGet<Client>(`/clients/${appointment?.client_id}`),
+    enabled: open && Boolean(appointment?.client_id),
+    retry: false,
+  });
+  const clients = useMemo(() => {
+    const loaded = clientsQuery.data?.pages.flatMap((result) => result.items) ?? [];
+    const all = selectedClient ? [...loaded, selectedClient] : loaded;
+    return [...new Map(all.map((client) => [client.id, client])).values()];
+  }, [clientsQuery.data, selectedClient]);
   const { data: stylists } = useQuery({
     queryKey: ["stylists"],
     queryFn: () => apiGet<Stylist[]>("/stylists"),
@@ -93,10 +114,27 @@ export default function AppointmentFormModal({
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["appointments"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
-      toast.success(appointment ? "Appointment updated" : `Booked ${saved.client_name} at ${saved.time}`);
+      toast.success(
+        appointment
+          ? t("Appointment updated")
+          : t("Booked {client} at {time}", {
+              client: saved.client_name ?? t("client"),
+              time: saved.time,
+            })
+      );
       onOpenChange(false);
     },
-    onError: () => toast.error("Could not save the appointment — check the fields"),
+    onError: (error) => {
+      const detail =
+        error instanceof ApiError &&
+        typeof error.body === "object" &&
+        error.body !== null &&
+        "detail" in error.body &&
+        typeof error.body.detail === "string"
+          ? error.body.detail
+          : null;
+      toast.error(detail ?? t("Could not save the appointment — check the fields"));
+    },
   });
 
   // Choosing a client defaults the professional to their preferred stylist.
@@ -107,13 +145,13 @@ export default function AppointmentFormModal({
   };
 
   const clientLabel = (id: string) =>
-    (clients ?? []).find((c) => c.id === id)?.name ?? "Choose a client";
+    (clients ?? []).find((c) => c.id === id)?.name ?? t("Choose a client");
   const serviceLabel = (id: string) => {
     const s = (services ?? []).find((x) => x.id === id);
-    return s ? `${s.name} · ${s.duration_min} min` : "Choose a service";
+    return s ? `${s.name} · ${s.duration_min} ${t("min")}` : t("Choose a service");
   };
   const stylistLabel = (id: string) =>
-    (stylists ?? []).find((s) => s.id === id)?.name ?? "Unassigned";
+    (stylists ?? []).find((s) => s.id === id)?.name ?? t("Unassigned");
 
   const activeServices = (services ?? []).filter(
     (s) => s.active || s.id === appointment?.service_id
@@ -124,12 +162,12 @@ export default function AppointmentFormModal({
       <DialogContent className="rounded-xl sm:max-w-lg" data-testid="appointment-form-dialog">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
-            {appointment ? "Edit appointment" : "New appointment"}
+            {appointment ? t("Edit appointment") : t("New appointment")}
           </DialogTitle>
           <DialogDescription>
             {appointment
-              ? "Adjust the day, time, service or professional."
-              : "The professional defaults to the client's preferred stylist — change it if needed."}
+              ? t("Adjust the day, time, service or professional.")
+              : t("The professional defaults to the client's preferred stylist — change it if needed.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -137,38 +175,51 @@ export default function AppointmentFormModal({
           onSubmit={(e) => {
             e.preventDefault();
             if (clientId === "none") {
-              toast.error("Choose a client");
+              toast.error(t("Choose a client"));
               return;
             }
             if (serviceId === "none") {
-              toast.error("Choose a service");
+              toast.error(t("Choose a service"));
               return;
             }
             if (!date || !time) {
-              toast.error("Pick the date and time");
+              toast.error(t("Pick the date and time"));
               return;
             }
             mutation.mutate();
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="appt-client">Client</Label>
+            <Label htmlFor="appt-client">{t("Client")}</Label>
             <Select value={clientId} onValueChange={(v) => onClientChange(v)}>
               <SelectTrigger id="appt-client" data-testid="appointment-client-select" className="w-full">
                 <SelectValue>{() => clientLabel(clientId)}</SelectValue>
               </SelectTrigger>
               <SelectContent data-testid="appointment-client-options">
-                {(clients ?? []).map((c) => (
+                {clients.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {clientsQuery.hasNextPage ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="w-fit"
+                disabled={clientsQuery.isFetchingNextPage}
+                data-testid="load-more-appointment-clients"
+                onClick={() => clientsQuery.fetchNextPage()}
+              >
+                {clientsQuery.isFetchingNextPage ? t("Loading clients…") : t("Load more clients")}
+              </Button>
+            ) : null}
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="appt-service">Service</Label>
+            <Label htmlFor="appt-service">{t("Service")}</Label>
             <Select value={serviceId} onValueChange={(v) => setServiceId(v)}>
               <SelectTrigger id="appt-service" data-testid="appointment-service-select" className="w-full">
                 <SelectValue>{() => serviceLabel(serviceId)}</SelectValue>
@@ -176,7 +227,7 @@ export default function AppointmentFormModal({
               <SelectContent data-testid="appointment-service-options">
                 {activeServices.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} · {s.duration_min} min
+                    {s.name} · {s.duration_min} {t("min")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -184,13 +235,13 @@ export default function AppointmentFormModal({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="appt-stylist">Professional</Label>
+            <Label htmlFor="appt-stylist">{t("Professional")}</Label>
             <Select value={stylistId} onValueChange={(v) => setStylistId(v)}>
               <SelectTrigger id="appt-stylist" data-testid="appointment-stylist-select" className="w-full">
                 <SelectValue>{() => stylistLabel(stylistId)}</SelectValue>
               </SelectTrigger>
               <SelectContent data-testid="appointment-stylist-options">
-                <SelectItem value="none">Unassigned</SelectItem>
+                <SelectItem value="none">{t("Unassigned")}</SelectItem>
                 {(stylists ?? [])
                   .filter((s) => s.active || s.id === appointment?.stylist_id)
                   .map((s) => (
@@ -204,16 +255,16 @@ export default function AppointmentFormModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="appt-date">Date</Label>
+              <Label htmlFor="appt-date">{t("Date")}</Label>
               <DateField
                 testid="appointment-date-input"
                 value={date}
                 onChange={setDate}
-                placeholder="Pick a day"
+                placeholder={t("Pick a day")}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="appt-time">Time</Label>
+              <Label htmlFor="appt-time">{t("Time")}</Label>
               <Input
                 id="appt-time"
                 type="time"
@@ -225,13 +276,13 @@ export default function AppointmentFormModal({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="appt-notes">Notes</Label>
+            <Label htmlFor="appt-notes">{t("Notes")}</Label>
             <Textarea
               id="appt-notes"
               data-testid="appointment-notes-input"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Anything the team should know — optional"
+              placeholder={t("Anything the team should know — optional")}
               rows={2}
             />
           </div>
@@ -243,10 +294,10 @@ export default function AppointmentFormModal({
               data-testid="appointment-form-cancel"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={mutation.isPending} data-testid="save-appointment-submit">
-              {mutation.isPending ? "Saving…" : appointment ? "Save changes" : "Book appointment"}
+              {mutation.isPending ? t("Saving…") : appointment ? t("Save changes") : t("Book appointment")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarDays, LogOut, Scissors, Sparkles, Tag, Users } from "lucide-react";
+import { CalendarDays, LogOut, Scissors, Sparkles, Tag, Users, UserRoundCog } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { Stats } from "@/lib/types";
 import { logout } from "@/lib/session";
@@ -9,11 +9,13 @@ import { initials } from "@/lib/format";
 import { useUser } from "@/lib/userContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useUser();
+  const { t } = useI18n();
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: () => apiGet<Stats>("/stats"),
@@ -21,17 +23,20 @@ export default function Sidebar() {
   });
 
   const nav = [
-    { to: "/", label: "Clients", icon: Users, testid: "nav-clients" },
+    { to: "/app", label: "Clients", icon: Users, testid: "nav-clients" },
     { to: "/agenda", label: "Agenda", icon: CalendarDays, testid: "nav-agenda" },
     { to: "/stylists", label: "Stylists", icon: Scissors, testid: "nav-stylists" },
     ...(user.role === "admin"
       ? [{ to: "/servicos", label: "Services", icon: Tag, testid: "nav-services" }]
       : []),
+    ...(user.role === "admin"
+      ? [{ to: "/team", label: "Team", icon: UserRoundCog, testid: "nav-team" }]
+      : []),
   ];
 
   const handleLogout = async () => {
     await logout();
-    toast.success("Signed out — see you soon");
+    toast.success(t("Signed out — see you soon"));
     navigate("/login", { replace: true });
   };
 
@@ -45,7 +50,7 @@ export default function Sidebar() {
           <div>
             <p className="font-heading text-xl font-semibold tracking-tight">Atelier</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#A89F91]">
-              Salon CRM
+              {user.tenant_slug} · CRM
             </p>
           </div>
         </div>
@@ -66,11 +71,11 @@ export default function Sidebar() {
               >
                 <span className="flex items-center gap-3">
                   <Icon className="h-4 w-4" />
-                  {label}
+                  {t(label)}
                 </span>
                 {active && stats && (
                   <span className="font-mono text-xs text-[#D97757]">
-                    {to === "/"
+                    {to === "/app"
                       ? stats.total_clients
                       : to === "/stylists"
                         ? stats.active_stylists
@@ -89,7 +94,7 @@ export default function Sidebar() {
         <div className="rounded-xl border border-[#2E2520] bg-[#342C26]/50 p-4">
           <div className="flex items-center gap-2 text-[#D97757]">
             <CalendarDays className="h-4 w-4" />
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em]">Recall due</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em]">{t("Recall due")}</p>
           </div>
           <p
             className="mt-2 font-heading text-3xl font-semibold text-[#F5EFE6]"
@@ -99,8 +104,8 @@ export default function Sidebar() {
           </p>
           <p className="mt-1 text-xs leading-relaxed text-[#A89F91]">
             {stats
-              ? `${stats.unassigned} client${stats.unassigned === 1 ? "" : "s"} without a stylist`
-              : "Loading workspace…"}
+              ? `${stats.unassigned} ${t(stats.unassigned === 1 ? "client" : "clients")} ${t("without a stylist")}`
+              : t("Loading workspace…")}
           </p>
         </div>
 
@@ -114,13 +119,13 @@ export default function Sidebar() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-[#F5EFE6]">{user.name}</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#A89F91]">
-              {user.role === "admin" ? "Administrator" : "Team"}
+              {t(user.role === "admin" ? "Administrator" : "Team")}
             </p>
           </div>
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Sign out"
+            aria-label={t("Sign out")}
             data-testid="logout-button"
             onClick={handleLogout}
             className="flex-none text-[#A89F91] hover:text-[#F5EFE6]"

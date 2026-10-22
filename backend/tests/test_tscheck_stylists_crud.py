@@ -1,13 +1,4 @@
-"""Criterion: Admin can create, edit and remove stylists (professionals).
-
-NOTE: POST /api/stylists currently raises a 500 (TypeError: Stylist() got multiple
-values for keyword argument 'client_count') in routers/salon.py::create_stylist, yet the
-document is still inserted before the crash -- corrupting db.stylists with a stored
-client_count field that then also crashes GET /api/stylists for everyone. This test
-asserts the expected lifecycle (documenting the bug via the failed creation) and always
-cleans up the created document directly, so a single failing run does not brick the
-shared /stylists endpoint for every other check/test that follows.
-"""
+"""Criterion: Admin can create, edit and archive stylists (professionals)."""
 import os
 import uuid
 
@@ -15,9 +6,7 @@ import pymongo
 
 
 def _cleanup_by_name(name):
-    """Direct Mongo cleanup (bypassing the API) -- the create bug leaves GET
-    /api/stylists itself broken for everyone until the corrupted doc is removed,
-    so we cannot rely on the (broken) API to find/delete it."""
+    """Direct Mongo cleanup for the stylist created by this test."""
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name = os.environ.get("DB_NAME", "app")
     with pymongo.MongoClient(mongo_url) as m:
@@ -61,13 +50,14 @@ def test_admin_stylist_crud_lifecycle(admin_client):
         client_id = r_client.json()["id"]
         assert r_client.json()["stylist_id"] == stylist_id
 
-        # remove stylist
+        # archive stylist
         r_del = admin_client.delete(f"/stylists/{stylist_id}")
         assert r_del.status_code == 200, r_del.text
 
         r_list_after = admin_client.get("/stylists")
         assert r_list_after.status_code == 200, r_list_after.text
-        assert all(s["id"] != stylist_id for s in r_list_after.json())
+        archived = next(s for s in r_list_after.json() if s["id"] == stylist_id)
+        assert archived["active"] is False
 
         # the client should remain and become unassigned, never dropped
         r_client_after = admin_client.get(f"/clients/{client_id}")
@@ -76,8 +66,7 @@ def test_admin_stylist_crud_lifecycle(admin_client):
 
         admin_client.delete(f"/clients/{client_id}")
     finally:
-        # always scrub this fixture's row even on assertion failure, to keep
-        # GET /stylists usable for subsequent tests/checks.
+        # Always scrub this fixture's row even on assertion failure.
         _cleanup_by_name(name)
 
 

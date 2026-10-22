@@ -17,7 +17,7 @@ def test_admin_books_appointment_with_computed_fields(admin_client):
     services = admin_client.get("/services").json()
     service = next(s for s in services if s["active"])
     stylists = admin_client.get("/stylists").json()
-    stylist = stylists[0]
+    stylist = next(s for s in stylists if s["active"])
 
     payload = {
         "client_id": client_id,
@@ -54,3 +54,17 @@ def test_inactive_service_not_in_active_list(admin_client):
     inactive = [s for s in services if not s["active"]]
     assert any(s["name"] == "Occasion Up-Do" for s in inactive), "seeded inactive service must stay inactive"
     assert "Occasion Up-Do" not in active_names
+
+    client_name = f"tscheck-inactive-service-{uuid.uuid4().hex[:8]}"
+    client = admin_client.post("/clients", json={"name": client_name})
+    assert client.status_code == 201, client.text
+    stylist = next(s for s in admin_client.get("/stylists").json() if s["active"])
+    rejected = admin_client.post("/appointments", json={
+        "client_id": client.json()["id"],
+        "stylist_id": stylist["id"],
+        "service_id": next(s["id"] for s in inactive if s["name"] == "Occasion Up-Do"),
+        "date": "2099-04-23",
+        "time": "13:00",
+    })
+    assert rejected.status_code == 400, rejected.text
+    admin_client.delete(f"/clients/{client.json()['id']}")

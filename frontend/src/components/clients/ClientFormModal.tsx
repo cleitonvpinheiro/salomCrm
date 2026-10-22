@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, apiPost, apiPut } from "@/lib/api";
 import type { Client, Stylist } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +32,7 @@ interface ClientFormModalProps {
 }
 
 export default function ClientFormModal({ open, onOpenChange, client }: ClientFormModalProps) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const { data: stylists } = useQuery({
     queryKey: ["stylists"],
@@ -87,16 +89,20 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["stylists"] });
       qc.invalidateQueries({ queryKey: ["client", saved.id] });
-      toast.success(client ? `${saved.name} updated` : `${saved.name} added to the book`);
+      toast.success(
+        client
+          ? t("{name} updated", { name: saved.name })
+          : t("{name} added to the book", { name: saved.name })
+      );
       onOpenChange(false);
     },
-    onError: () => toast.error("Could not save the client — check the fields and try again"),
+    onError: () => toast.error(t("Could not save the client — check the fields and try again")),
   });
 
   const stylistLabel = (id: string) =>
     id === "none"
-      ? "Unassigned"
-      : (stylists?.find((s) => s.id === id)?.name ?? "Unassigned");
+      ? t("Unassigned")
+      : (stylists?.find((s) => s.id === id)?.name ?? t("Unassigned"));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,12 +112,12 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
       >
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
-            {client ? "Edit client" : "New client"}
+            {client ? t("Edit client") : t("New client")}
           </DialogTitle>
           <DialogDescription>
             {client
-              ? "Update details, stylist assignment, last visit and formula."
-              : "Add someone new to the client book."}
+              ? t("Update details, stylist assignment, last visit and formula.")
+              : t("Add someone new to the client book.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -119,71 +125,71 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
           onSubmit={(e) => {
             e.preventDefault();
             if (name.trim().length === 0) {
-              toast.error("A name is required");
+              toast.error(t("A name is required"));
               return;
             }
             mutation.mutate();
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor="client-name">Full name</Label>
+            <Label htmlFor="client-name">{t("Full name")}</Label>
             <Input
               id="client-name"
               data-testid="client-name-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Beatriz Carvalho"
+              placeholder={t("e.g. Beatriz Carvalho")}
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="client-phone">Phone</Label>
+              <Label htmlFor="client-phone">{t("Phone")}</Label>
               <Input
                 id="client-phone"
                 data-testid="client-phone-input"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+55 11 91234-0091"
+                placeholder={t("+55 11 91234-0091")}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="client-email">Email</Label>
+              <Label htmlFor="client-email">{t("Email")}</Label>
               <Input
                 id="client-email"
                 type="email"
                 data-testid="client-email-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder={t("name@example.com")}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="client-birthday">Birthday</Label>
+              <Label htmlFor="client-birthday">{t("Birthday")}</Label>
               <DateField
                 testid="client-birthday-input"
                 value={birthday}
                 onChange={setBirthday}
-                placeholder="Birthday"
+                placeholder={t("Birthday")}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="client-last-visit">Last visit</Label>
+              <Label htmlFor="client-last-visit">{t("Last visit")}</Label>
               <DateField
                 testid="client-last-visit-input"
                 value={lastVisit}
                 onChange={setLastVisit}
-                placeholder="Last visit"
+                placeholder={t("Last visit")}
                 disableFuture
               />
             </div>
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="client-stylist">Preferred stylist</Label>
+            <Label htmlFor="client-stylist">{t("Preferred stylist")}</Label>
             <Select
               value={stylistId}
               onValueChange={(v) => setStylistId(v)}
@@ -192,7 +198,7 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
                 <SelectValue>{() => stylistLabel(stylistId)}</SelectValue>
               </SelectTrigger>
               <SelectContent data-testid="client-stylist-options">
-                <SelectItem value="none">Unassigned</SelectItem>
+                <SelectItem value="none">{t("Unassigned")}</SelectItem>
                 {(stylists ?? [])
                   .filter((s) => s.active || s.id === client?.stylist_id)
                   .map((s) => (
@@ -211,38 +217,38 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="client-hair-type">Hair type / texture</Label>
+            <Label htmlFor="client-hair-type">{t("Hair type / texture")}</Label>
             <Input
               id="client-hair-type"
               data-testid="client-hair-type-input"
               value={hairType}
               onChange={(e) => setHairType(e.target.value)}
-              placeholder="e.g. Fine, colour-treated"
+              placeholder={t("e.g. Fine, colour-treated")}
             />
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="client-formula">Colour formula / recipe</Label>
+            <Label htmlFor="client-formula">{t("Colour formula / recipe")}</Label>
             <Textarea
               id="client-formula"
               data-testid="client-formula-input"
               value={formula}
               onChange={(e) => setFormula(e.target.value)}
-              placeholder="e.g. Wella Illumina 7/81 + 6% at roots, toner 9/60 gloss"
+              placeholder={t("e.g. Wella Illumina 7/81 + 6% at roots, toner 9/60 gloss")}
               rows={2}
             />
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="client-tags">Tags</Label>
+            <Label htmlFor="client-tags">{t("Tags")}</Label>
             <Input
               id="client-tags"
               data-testid="client-tags-input"
               value={tagsText}
               onChange={(e) => setTagsText(e.target.value)}
-              placeholder="VIP, sensitive scalp, no ammonia"
+              placeholder={t("VIP, sensitive scalp, no ammonia")}
             />
-            <p className="text-xs text-stone-400">Separate tags with commas.</p>
+            <p className="text-xs text-stone-400">{t("Separate tags with commas.")}</p>
           </div>
 
           <DialogFooter>
@@ -255,7 +261,7 @@ export default function ClientFormModal({ open, onOpenChange, client }: ClientFo
               Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending} data-testid="save-client-submit">
-              {mutation.isPending ? "Saving…" : client ? "Save changes" : "Add client"}
+              {mutation.isPending ? t("Saving…") : client ? t("Save changes") : t("Add client")}
             </Button>
           </DialogFooter>
         </form>

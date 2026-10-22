@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Scissors, Trash2 } from "lucide-react";
 import { apiDelete, apiGet } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { Stylist } from "@/lib/types";
 import { initials } from "@/lib/format";
 import { useUser } from "@/lib/userContext";
@@ -25,6 +26,7 @@ function StylistCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className="rounded-2xl border border-[#E5DCD0] bg-white p-5 shadow-[0_1px_3px_0_rgba(44,30,20,0.04),0_6px_16px_-4px_rgba(44,30,20,0.06)] transition-transform duration-150 ease-out hover:-translate-y-0.5"
@@ -50,7 +52,7 @@ function StylistCard({
             <p className="truncate font-heading text-lg font-semibold text-stone-900">
               {stylist.name}
             </p>
-            <p className="truncate text-xs text-stone-500">{stylist.title || "Stylist"}</p>
+            <p className="truncate text-xs text-stone-500">{stylist.title || t("Stylist")}</p>
           </div>
         </div>
         <span
@@ -58,7 +60,7 @@ function StylistCard({
             stylist.active ? "bg-[#EBF4EE] text-[#235937]" : "bg-[#F3ECE1] text-[#57534E]"
           }`}
         >
-          {stylist.active ? "Active" : "Away"}
+          {stylist.active ? t("Active") : t("Away")}
         </span>
       </div>
       <div className="mt-4 flex items-center justify-between">
@@ -66,14 +68,14 @@ function StylistCard({
           <span className="mr-1 font-heading text-base font-semibold normal-case text-stone-900">
             {stylist.client_count}
           </span>
-          client{stylist.client_count === 1 ? "" : "s"}
+          {t(stylist.client_count === 1 ? "client" : "clients")}
         </p>
         {canManage ? (
           <div className="flex gap-1">
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={`Edit ${stylist.name}`}
+              aria-label={t("Edit {name}", { name: stylist.name })}
               data-testid={`edit-stylist-${stylist.id}`}
               onClick={onEdit}
             >
@@ -82,7 +84,7 @@ function StylistCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove ${stylist.name}`}
+              aria-label={t("Archive {name}", { name: stylist.name })}
               data-testid={`delete-stylist-${stylist.id}`}
               className="text-stone-400 hover:text-destructive"
               onClick={onDelete}
@@ -97,6 +99,7 @@ function StylistCard({
 }
 
 export default function StylistsPage() {
+  const { t } = useI18n();
   const user = useUser();
   const canManage = user.role === "admin";
   const qc = useQueryClient();
@@ -117,16 +120,16 @@ export default function StylistsPage() {
       qc.invalidateQueries({ queryKey: ["stylists"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
-      toast.success(`${deleteTarget?.name ?? "Stylist"} removed — their clients are now unassigned`);
+      toast.success(t("{name} archived — their clients are now unassigned", { name: deleteTarget?.name ?? t("Stylist") }));
       setDeleteTarget(null);
     },
-    onError: () => toast.error("Could not remove the stylist"),
+    onError: () => toast.error(t("Could not remove the stylist")),
   });
 
   return (
     <AppShell
-      title="Stylists"
-      subtitle="The roster — specialties, statuses and client loads"
+      title={t("Stylists")}
+      subtitle={t("The roster — specialties, statuses and client loads")}
       actions={
         canManage ? (
           <Button
@@ -136,21 +139,21 @@ export default function StylistsPage() {
               setFormOpen(true);
             }}
           >
-            <Plus className="h-4 w-4" /> Add stylist
+            <Plus className="h-4 w-4" /> {t("Add stylist")}
           </Button>
         ) : undefined
       }
     >
       <div className="space-y-6 px-6 py-6 lg:px-8">
         <div className="relative h-44 overflow-hidden rounded-2xl border border-[#E5DCD0]">
-          <img src={BANNER_URL} alt="Inside the Atelier salon" className="h-full w-full object-cover" />
+          <img src={BANNER_URL} alt={t("Inside the Atelier salon")} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#221C18]/85 via-[#221C18]/40 to-transparent" />
           <div className="absolute bottom-0 left-0 p-6">
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#E7DFD5]">
-              Atelier · The floor
+              {t("Atelier · The floor")}
             </p>
             <h2 className="mt-1 font-heading text-3xl font-semibold text-white">
-              The stylist roster
+              {t("The stylist roster")}
             </h2>
           </div>
         </div>
@@ -160,9 +163,9 @@ export default function StylistsPage() {
             className="rounded-2xl border border-[#E5DCD0] bg-white p-10 text-center"
             data-testid="stylists-error-state"
           >
-            <p className="font-heading text-lg text-stone-800">The roster is out of reach</p>
+            <p className="font-heading text-lg text-stone-800">{t("The roster is out of reach")}</p>
             <p className="mt-1 text-sm text-stone-500">
-              We couldn't load stylists. Check the connection and try again.
+              {t("We couldn't load stylists. Check the connection and try again.")}
             </p>
             <Button
               variant="outline"
@@ -170,7 +173,7 @@ export default function StylistsPage() {
               data-testid="stylists-retry-button"
               onClick={() => stylistsQuery.refetch()}
             >
-              Try again
+              {t("Try again")}
             </Button>
           </div>
         ) : stylistsQuery.isLoading ? (
@@ -185,9 +188,9 @@ export default function StylistsPage() {
             data-testid="stylists-empty-state"
           >
             <Scissors className="mx-auto h-8 w-8 text-stone-300" />
-            <p className="mt-3 font-heading text-lg text-stone-800">No stylists yet</p>
+            <p className="mt-3 font-heading text-lg text-stone-800">{t("No stylists yet")}</p>
             <p className="mt-1 text-sm text-stone-500">
-              Add your first stylist, then assign clients to them.
+              {t("Add your first stylist, then assign clients to them.")}
             </p>
             <Button
               className="mt-4"
@@ -197,7 +200,7 @@ export default function StylistsPage() {
                 setFormOpen(true);
               }}
             >
-              <Plus className="h-4 w-4" /> Add stylist
+              <Plus className="h-4 w-4" /> {t("Add stylist")}
             </Button>
           </div>
         ) : (
@@ -224,12 +227,12 @@ export default function StylistsPage() {
         onOpenChange={(o) => {
           if (!o) setDeleteTarget(null);
         }}
-        title={`Remove ${deleteTarget?.name ?? "stylist"}?`}
-        description="Their clients will stay in the book as unassigned, so nobody disappears from the client list."
-        confirmLabel="Remove stylist"
+        title={t("Archive {name}?", { name: deleteTarget?.name ?? t("stylist") })}
+        description={t("Their appointment history will be preserved, and their clients will stay in the book as unassigned.")}
+        confirmLabel={t("Archive stylist")}
         pending={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        confirmTestId="confirm-delete-stylist-btn"
+        confirmTestId="confirm-archive-stylist-btn"
       />
     </AppShell>
   );

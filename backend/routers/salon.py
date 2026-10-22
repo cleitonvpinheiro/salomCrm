@@ -3,7 +3,7 @@
 import re
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from lib.dates import normalize_doc_dt as _normalize_dt, today_iso
 from routers.auth import require_admin, require_user
@@ -22,6 +22,7 @@ from models.salon import (
     new_id,
     utcnow,
 )
+from models.pagination import Page
 
 router = APIRouter(dependencies=[Depends(require_user)])
 
@@ -39,13 +40,16 @@ async def _stylist_map() -> dict[str, dict]:
 async def _note_counts() -> dict[str, int]:
     rows = await db.notes.aggregate(
         [{"$group": {"_id": "$client_id", "n": {"$sum": 1}}}]
-    ).to_list(1000)
+    ).to_list(None)
     return {r["_id"]: r["n"] for r in rows}
 
 
 async def _client_counts_by_stylist() -> dict[str | None, int]:
     rows = await db.clients.aggregate(
-        [{"$group": {"_id": "$stylist_id", "n": {"$sum": 1}}}]
+        [
+            {"$match": {"active": {"$ne": False}}},
+            {"$group": {"_id": "$stylist_id", "n": {"$sum": 1}}},
+        ]
     ).to_list(1000)
     return {r["_id"]: r["n"] for r in rows}
 
@@ -75,13 +79,22 @@ def _client_read(doc: dict, stylists: dict[str, dict], note_count: int) -> Clien
 
 async def _stylist_read(doc: dict) -> Stylist:
     _normalize_dt(doc)
-    n = await db.clients.count_documents({"stylist_id": doc["id"]})
+    n = await db.clients.count_documents(
+        {"stylist_id": doc["id"], "active": {"$ne": False}}
+    )
     return Stylist(**{**doc, "client_count": n})
 
 
-async def _validate_stylist(stylist_id: str | None) -> None:
-    if stylist_id and not await db.stylists.find_one({"id": stylist_id}):
+async def _validate_stylist(
+    stylist_id: str | None, *, allow_inactive: bool = False
+) -> None:
+    if not stylist_id:
+        return
+    stylist = await db.stylists.find_one({"id": stylist_id})
+    if not stylist:
         raise HTTPException(status_code=404, detail="stylist not found")
+    if stylist.get("active", True) is False and not allow_inactive:
+        raise HTTPException(status_code=400, detail="stylist is inactive")
 
 
 # ---- stylists ----
@@ -123,10 +136,11 @@ async def update_stylist(stylist_id: str, input: StylistUpdate):
 
 @router.delete("/stylists/{stylist_id}", dependencies=[Depends(require_admin)])
 async def delete_stylist(stylist_id: str):
-    res = await db.stylists.delete_one({"id": stylist_id})
-    if res.deleted_count == 0:
+    stylist = await db.stylists.find_one({"id": stylist_id})
+    if not stylist:
         raise HTTPException(status_code=404, detail="stylist not found")
-    # their clients stay in the book, just unassigned
+    await db.stylists.update_one({"id": stylist_id}, {"$set": {"active": False}})
+    # Preserve the stylist for appointment history; clients remain in the book, unassigned.
     await db.clients.update_many({"stylist_id": stylist_id}, {"$set": {"stylist_id": None}})
     return {"ok": True}
 
@@ -134,12 +148,15 @@ async def delete_stylist(stylist_id: str):
 # ---- clients ----
 
 
-@router.get("/clients", response_model=list[ClientRead])
+@router.get("/clients", response_model=list[ClientRead] | Page[ClientRead])
 async def list_clients(
     search: str | None = None,
     stylist_id: str | None = None,
     sort_by: str = "last_visit_asc",
-):
+    archived: bool = False,
+    page: int | None = Query(default=None, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+) -> list[ClientRead] | Page[ClientRead]:
     query: dict = {}
     if stylist_id == "none":
         query["stylist_id"] = None
@@ -163,10 +180,23 @@ async def list_clients(
     }
     sort = sorts.get(sort_by, sorts["last_visit_asc"])
 
-    docs = await db.clients.find(query).sort(sort).to_list(1000)
+    query["active"] = False if archived else {"$ne": False}
+    cursor = db.clients.find(query).sort([*sort, ("id", 1)])
+    if page is None:
+        docs = await cursor.to_list(None)
+    else:
+        docs = await cursor.skip((page - 1) * page_size).limit(page_size).to_list(page_size)
     stylists = await _stylist_map()
     counts = await _note_counts()
-    return [_client_read(d, stylists, counts.get(d["id"], 0)) for d in docs]
+    items = [_client_read(d, stylists, counts.get(d["id"], 0)) for d in docs]
+    if page is None:
+        return items
+    return Page(
+        items=items,
+        total=await db.clients.count_documents(query),
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/clients/{client_id}", response_model=ClientRead)
@@ -182,7 +212,7 @@ async def get_client(client_id: str):
 @router.post("/clients", response_model=ClientRead, status_code=201)
 async def create_client(input: ClientCreate):
     await _validate_stylist(input.stylist_id)
-    doc = {"id": new_id(), **input.model_dump(), "created_at": utcnow()}
+    doc = {"id": new_id(), **input.model_dump(), "active": True, "created_at": utcnow()}
     await db.clients.insert_one(doc)
     stylists = await _stylist_map()
     return _client_read(doc, stylists, 0)
@@ -195,7 +225,10 @@ async def update_client(client_id: str, input: ClientUpdate):
         raise HTTPException(status_code=404, detail="client not found")
     update = input.model_dump(exclude_unset=True)
     if "stylist_id" in update:
-        await _validate_stylist(update["stylist_id"])
+        await _validate_stylist(
+            update["stylist_id"],
+            allow_inactive=update["stylist_id"] == doc.get("stylist_id"),
+        )
     if update:
         await db.clients.update_one({"id": client_id}, {"$set": update})
         doc.update(update)
@@ -206,30 +239,52 @@ async def update_client(client_id: str, input: ClientUpdate):
 
 @router.delete("/clients/{client_id}")
 async def delete_client(client_id: str):
-    res = await db.clients.delete_one({"id": client_id})
-    if res.deleted_count == 0:
+    res = await db.clients.update_one(
+        {"id": client_id, "active": {"$ne": False}}, {"$set": {"active": False}}
+    )
+    if res.matched_count == 0 and not await db.clients.find_one({"id": client_id}):
         raise HTTPException(status_code=404, detail="client not found")
-    await db.notes.delete_many({"client_id": client_id})
     return {"ok": True}
 
 
 # ---- notes ----
 
 
-@router.get("/clients/{client_id}/notes", response_model=list[Note])
-async def list_notes(client_id: str):
-    docs = await db.notes.find({"client_id": client_id}).sort("created_at", -1).to_list(1000)
+@router.get(
+    "/clients/{client_id}/notes", response_model=list[Note] | Page[Note]
+)
+async def list_notes(
+    client_id: str,
+    page: int | None = Query(default=None, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> list[Note] | Page[Note]:
+    query = {"client_id": client_id}
+    cursor = db.notes.find(query).sort([("created_at", -1), ("id", 1)])
+    if page is None:
+        docs = await cursor.to_list(None)
+    else:
+        docs = await cursor.skip((page - 1) * page_size).limit(page_size).to_list(page_size)
     out = []
     for d in docs:
         _normalize_dt(d)
         out.append(Note(**d))
-    return out
+    if page is None:
+        return out
+    return Page(
+        items=out,
+        total=await db.notes.count_documents(query),
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("/clients/{client_id}/notes", response_model=Note, status_code=201)
 async def create_note(client_id: str, input: NoteCreate):
-    if not await db.clients.find_one({"id": client_id}):
+    client = await db.clients.find_one({"id": client_id})
+    if not client:
         raise HTTPException(status_code=404, detail="client not found")
+    if client.get("active", True) is False:
+        raise HTTPException(status_code=400, detail="client is archived")
     kind = input.kind if input.kind in NOTE_KINDS else "general"
     note = Note(client_id=client_id, kind=kind, body=input.body)
     await db.notes.insert_one(note.model_dump())
@@ -249,15 +304,21 @@ async def get_stats():
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     cutoff = (datetime.strptime(today, "%Y-%m-%d").date() - timedelta(days=RECALL_DAYS)).isoformat()
 
-    total_clients = await db.clients.count_documents({})
+    total_clients = await db.clients.count_documents({"active": {"$ne": False}})
+    archived_clients = await db.clients.count_documents({"active": False})
     active_stylists = await db.stylists.count_documents({"active": True})
     visits_this_month = await db.notes.count_documents(
         {"kind": "visit", "created_at": {"$gte": month_start}}
     )
     recall_due = await db.clients.count_documents(
-        {"$or": [{"last_visit": None}, {"last_visit": {"$lte": cutoff}}]}
+        {
+            "active": {"$ne": False},
+            "$or": [{"last_visit": None}, {"last_visit": {"$lte": cutoff}}],
+        }
     )
-    unassigned = await db.clients.count_documents({"stylist_id": None})
+    unassigned = await db.clients.count_documents(
+        {"active": {"$ne": False}, "stylist_id": None}
+    )
 
     return Stats(
         today=today,
@@ -266,4 +327,5 @@ async def get_stats():
         visits_this_month=visits_this_month,
         recall_due=recall_due,
         unassigned=unassigned,
+        archived_clients=archived_clients,
     )

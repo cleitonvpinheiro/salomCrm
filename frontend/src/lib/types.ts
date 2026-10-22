@@ -24,6 +24,7 @@ export interface Client {
   formula: string | null;
   tags: string[];
   created_at: string;
+  active: boolean;
   stylist_name: string | null;
   stylist_color: string | null;
   days_since_visit: number | null;
@@ -47,6 +48,32 @@ export interface Stats {
   visits_this_month: number;
   recall_due: number;
   unassigned: number;
+  archived_clients: number;
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TeamUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "staff";
+  active: boolean;
+  tenant_slug: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  is_default?: boolean;
+  created_at: string;
 }
 
 // ---- Services (mirrors backend Service / ServiceCreate / ServiceUpdate) ----

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarCheck, Scissors, UserRound, UserRoundX } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { Stats } from "@/lib/types";
 
 export default function KpiStatCards() {
+  const { t } = useI18n();
   const { data: stats, isError } = useQuery({
     queryKey: ["stats"],
     queryFn: () => apiGet<Stats>("/stats"),
@@ -11,10 +13,10 @@ export default function KpiStatCards() {
   });
 
   const cards = [
-    { testid: "kpi-total-clients", label: "Total clients", value: stats?.total_clients, icon: UserRound, hint: "in the book" },
-    { testid: "kpi-active-stylists", label: "Active stylists", value: stats?.active_stylists, icon: Scissors, hint: "on the floor" },
-    { testid: "kpi-visits-this-month", label: "Visits this month", value: stats?.visits_this_month, icon: CalendarCheck, hint: "logged so far" },
-    { testid: "kpi-recall-due", label: "Recall due", value: stats?.recall_due, icon: UserRoundX, hint: "no visit in 8+ weeks" },
+    { testid: "kpi-total-clients", label: t("Total clients"), value: stats?.total_clients, icon: UserRound, hint: t("in the book") },
+    { testid: "kpi-active-stylists", label: t("Active stylists"), value: stats?.active_stylists, icon: Scissors, hint: t("on the floor") },
+    { testid: "kpi-visits-this-month", label: t("Visits this month"), value: stats?.visits_this_month, icon: CalendarCheck, hint: t("logged so far") },
+    { testid: "kpi-recall-due", label: t("Recall due"), value: stats?.recall_due, icon: UserRoundX, hint: t("no visit in 8+ weeks") },
   ];
 
   return (

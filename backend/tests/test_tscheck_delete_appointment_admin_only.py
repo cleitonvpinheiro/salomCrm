@@ -13,7 +13,7 @@ def test_staff_cannot_delete_appointment_admin_can(admin_client, staff_client):
     client_id = r_client.json()["id"]
 
     service = next(s for s in admin_client.get("/services").json() if s["active"])
-    stylist = admin_client.get("/stylists").json()[0]
+    stylist = next(s for s in admin_client.get("/stylists").json() if s["active"])
 
     r_appt = admin_client.post("/appointments", json={
         "client_id": client_id,

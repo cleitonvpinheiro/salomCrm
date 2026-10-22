@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { apiDelete, apiGet } from "@/lib/api";
 import type { Service } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import { formatBRL } from "@/lib/format";
 import { useUser } from "@/lib/userContext";
 import AppShell from "@/components/layout/AppShell";
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/table";
 
 export default function ServicesPage() {
+  const { t } = useI18n();
   const user = useUser();
   const qc = useQueryClient();
   const servicesQuery = useQuery({
@@ -38,10 +40,10 @@ export default function ServicesPage() {
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/services/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["services"] });
-      toast.success(`${deleteTarget?.name ?? "Service"} removed from the menu`);
+      toast.success(t("{name} removed from the menu", { name: deleteTarget?.name ?? t("Service") }));
       setDeleteTarget(null);
     },
-    onError: () => toast.error("Could not remove the service"),
+    onError: () => toast.error(t("Could not remove the service")),
   });
 
   // Admin gate — team members are redirected to the agenda.
@@ -49,8 +51,8 @@ export default function ServicesPage() {
 
   return (
     <AppShell
-      title="Services"
-      subtitle="The menu — managed by administrators"
+      title={t("Services")}
+      subtitle={t("The menu — managed by administrators")}
       actions={
         <Button
           data-testid="add-service-button"
@@ -59,7 +61,7 @@ export default function ServicesPage() {
             setFormOpen(true);
           }}
         >
-          <Plus className="h-4 w-4" /> Add service
+          <Plus className="h-4 w-4" /> {t("Add service")}
         </Button>
       }
     >
@@ -69,9 +71,9 @@ export default function ServicesPage() {
             className="rounded-2xl border border-[#E5DCD0] bg-white p-10 text-center"
             data-testid="services-error-state"
           >
-            <p className="font-heading text-lg text-stone-800">The menu is out of reach</p>
+            <p className="font-heading text-lg text-stone-800">{t("The menu is out of reach")}</p>
             <p className="mt-1 text-sm text-stone-500">
-              We couldn't load the services. Check the connection and try again.
+              {t("We couldn't load the services. Check the connection and try again.")}
             </p>
             <Button
               variant="outline"
@@ -79,7 +81,7 @@ export default function ServicesPage() {
               data-testid="services-retry-button"
               onClick={() => servicesQuery.refetch()}
             >
-              Try again
+              {t("Try again")}
             </Button>
           </div>
         ) : (
@@ -90,12 +92,12 @@ export default function ServicesPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-mono text-xs uppercase tracking-wider">Service</TableHead>
-                  <TableHead className="font-mono text-xs uppercase tracking-wider">Duration</TableHead>
-                  <TableHead className="font-mono text-xs uppercase tracking-wider">Price</TableHead>
-                  <TableHead className="font-mono text-xs uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Service")}</TableHead>
+                  <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Duration")}</TableHead>
+                  <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Price")}</TableHead>
+                  <TableHead className="font-mono text-xs uppercase tracking-wider">{t("Status")}</TableHead>
                   <TableHead className="text-right font-mono text-xs uppercase tracking-wider">
-                    Actions
+                    {t("Actions")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -123,9 +125,9 @@ export default function ServicesPage() {
                 ) : services.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={5} className="py-12 text-center">
-                      <p className="font-heading text-lg text-stone-800">No services yet</p>
+                      <p className="font-heading text-lg text-stone-800">{t("No services yet")}</p>
                       <p className="mt-1 text-sm text-stone-500">
-                        Add the first service so the team can start booking.
+                        {t("Add the first service so the team can start booking.")}
                       </p>
                     </TableCell>
                   </TableRow>
@@ -139,7 +141,7 @@ export default function ServicesPage() {
                         ) : null}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-stone-600">
-                        {s.duration_min} min
+                        {s.duration_min} {t("min")}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-stone-600">
                         {formatBRL(s.price)}
@@ -152,7 +154,7 @@ export default function ServicesPage() {
                               : "bg-[#F3ECE1] text-[#57534E]"
                           }`}
                         >
-                          {s.active ? "Active" : "Inactive"}
+                          {s.active ? t("Active") : t("Inactive")}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -160,7 +162,7 @@ export default function ServicesPage() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Edit ${s.name}`}
+                            aria-label={t("Edit {name}", { name: s.name })}
                             data-testid={`edit-service-${s.id}`}
                             onClick={() => {
                               setEditing(s);
@@ -172,7 +174,7 @@ export default function ServicesPage() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Remove ${s.name}`}
+                            aria-label={t("Archive {name}", { name: s.name })}
                             data-testid={`delete-service-${s.id}`}
                             className="text-stone-400 hover:text-destructive"
                             onClick={() => setDeleteTarget(s)}
@@ -196,12 +198,12 @@ export default function ServicesPage() {
         onOpenChange={(o) => {
           if (!o) setDeleteTarget(null);
         }}
-        title={`Remove ${deleteTarget?.name ?? "service"}?`}
-        description="Existing appointments keep their records — the service just leaves the booking menu."
-        confirmLabel="Remove service"
+        title={t("Archive {name}?", { name: deleteTarget?.name ?? t("service") })}
+        description={t("The service will leave the booking menu, but existing appointments will retain its name, price and duration.")}
+        confirmLabel={t("Archive service")}
         pending={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-        confirmTestId="confirm-delete-service-btn"
+        confirmTestId="confirm-archive-service-btn"
       />
     </AppShell>
   );
