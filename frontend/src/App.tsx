@@ -10,6 +10,7 @@ const AgendaPage = lazy(() => import("@/pages/AgendaPage"));
 const StylistsPage = lazy(() => import("@/pages/StylistsPage"));
 const ServicesPage = lazy(() => import("@/pages/ServicesPage"));
 const TeamPage = lazy(() => import("@/pages/TeamPage"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const PlatformPage = lazy(() => import("@/pages/PlatformPage"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/stylists" element={<StylistsPage />} />
             <Route path="/servicos" element={<ServicesPage />} />
             <Route path="/team" element={<TeamPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Route>
         </Routes>
       </Suspense>

@@ -1,7 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarDays, LogOut, Scissors, Sparkles, Tag, Users, UserRoundCog } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  LogOut,
+  Scissors,
+  Sparkles,
+  Tag,
+  Users,
+  UserRoundCog,
+} from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { Stats } from "@/lib/types";
 import { logout } from "@/lib/session";
@@ -31,6 +40,9 @@ export default function Sidebar() {
       : []),
     ...(user.role === "admin"
       ? [{ to: "/team", label: "Team", icon: UserRoundCog, testid: "nav-team" }]
+      : []),
+    ...(user.role === "admin"
+      ? [{ to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" }]
       : []),
   ];
 

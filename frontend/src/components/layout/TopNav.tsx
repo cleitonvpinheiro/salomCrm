@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, Scissors, Tag, Users, UserRoundCog } from "lucide-react";
+import { BarChart3, CalendarDays, Scissors, Tag, Users, UserRoundCog } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import type { Stats } from "@/lib/types";
 import { useUser } from "@/lib/userContext";
@@ -15,6 +15,7 @@ const MOBILE_NAV = [
   { to: "/stylists", label: "Stylists", icon: Scissors, testid: "nav-stylists", adminOnly: false },
   { to: "/servicos", label: "Services", icon: Tag, testid: "nav-services", adminOnly: true },
   { to: "/team", label: "Team", icon: UserRoundCog, testid: "nav-team", adminOnly: true },
+  { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports", adminOnly: true },
 ];
 
 interface TopNavProps {
