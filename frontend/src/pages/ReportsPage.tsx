@@ -178,7 +178,7 @@ function ReportsDashboard() {
         </Button>
       }
     >
-      <div className="space-y-6 px-6 py-6 lg:px-8" data-testid="reports-page">
+      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8" data-testid="reports-page">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm text-stone-500">{t("Month")}</p>

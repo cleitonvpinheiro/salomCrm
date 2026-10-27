@@ -27,13 +27,21 @@ def test_staff_login_and_me_role(staff_client):
 
 
 def test_unauthenticated_request_is_rejected():
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(
+        base_url=API_URL,
+        timeout=30.0,
+        headers={"Origin": os.environ.get("TEST_CLIENT_ORIGIN", "http://localhost:3000")},
+    ) as c:
         r = c.get("/clients")
         assert r.status_code in (401, 403), r.text
 
 
 def test_bad_credentials_rejected():
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(
+        base_url=API_URL,
+        timeout=30.0,
+        headers={"Origin": os.environ.get("TEST_CLIENT_ORIGIN", "http://localhost:3000")},
+    ) as c:
         r = c.post("/auth/login", json={"email": f"nope-{uuid.uuid4().hex[:6]}@x.com", "password": "wrong"})
         assert r.status_code in (401, 403), r.text
 
@@ -52,7 +60,11 @@ def test_staff_forbidden_from_creating_service(staff_client):
 
 
 def test_logout_then_session_invalid():
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(
+        base_url=API_URL,
+        timeout=30.0,
+        headers={"Origin": os.environ.get("TEST_CLIENT_ORIGIN", "http://localhost:3000")},
+    ) as c:
         r = c.post("/auth/login", json=ADMIN_CREDS)
         assert r.status_code == 200
         r2 = c.post("/auth/logout")

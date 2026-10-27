@@ -1,5 +1,6 @@
 """Runtime configuration checks that fail closed before production startup."""
 
+import ipaddress
 import os
 from urllib.parse import parse_qs, urlsplit
 
@@ -9,8 +10,24 @@ def validate_runtime_config(environ: dict[str, str] | None = None) -> None:
     app_env = values.get("APP_ENV", "development").strip().lower()
     if app_env not in {"development", "staging", "production"}:
         raise RuntimeError("APP_ENV must be development, staging, or production")
+
+    try:
+        for proxy in values.get("TRUSTED_PROXY_IPS", "").split(","):
+            if proxy.strip():
+                ipaddress.ip_network(proxy.strip(), strict=False)
+    except ValueError as exc:
+        raise RuntimeError(
+            "TRUSTED_PROXY_IPS must contain valid IP addresses or CIDRs"
+        ) from exc
+
     if app_env != "production":
         return
+
+    rate_limit_secret = values.get("RATE_LIMIT_SECRET", "")
+    if len(rate_limit_secret.strip()) < 32:
+        raise RuntimeError(
+            "Production requires RATE_LIMIT_SECRET of at least 32 characters"
+        )
 
     owner_email = values.get("PLATFORM_OWNER_EMAIL", "").strip()
     owner_password = values.get("PLATFORM_OWNER_PASSWORD", "")

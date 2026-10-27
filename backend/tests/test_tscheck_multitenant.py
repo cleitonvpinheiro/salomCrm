@@ -15,8 +15,13 @@ def test_platform_provisions_tenants_and_tenant_data_is_isolated():
     slug_b = f"tenant-b-{suffix}"
     shared_email = f"admin-{suffix}@example.com"
     tenant_ids = {}
+    test_headers = {
+        "Origin": os.environ.get("TEST_CLIENT_ORIGIN", "http://localhost:3000")
+    }
 
-    with httpx.Client(base_url=f"{api}/api", timeout=30) as owner:
+    with httpx.Client(
+        base_url=f"{api}/api", timeout=30, headers=test_headers
+    ) as owner:
         login = owner.post(
             "/platform/auth/login",
             json={"email": platform_email, "password": platform_password},
@@ -73,8 +78,12 @@ def test_platform_provisions_tenants_and_tenant_data_is_isolated():
         assert cannot_deactivate_default.status_code == 409
 
     with (
-        httpx.Client(base_url=f"{api}/api", timeout=30) as tenant_a,
-        httpx.Client(base_url=f"{api}/api", timeout=30) as tenant_b,
+        httpx.Client(
+            base_url=f"{api}/api", timeout=30, headers=test_headers
+        ) as tenant_a,
+        httpx.Client(
+            base_url=f"{api}/api", timeout=30, headers=test_headers
+        ) as tenant_b,
     ):
         login_a = tenant_a.post(
             "/auth/login",
@@ -126,7 +135,9 @@ def test_platform_provisions_tenants_and_tenant_data_is_isolated():
             },
         )
         assert staff.status_code == 201, staff.text
-        staff_client = httpx.Client(base_url=f"{api}/api", timeout=30)
+        staff_client = httpx.Client(
+            base_url=f"{api}/api", timeout=30, headers=test_headers
+        )
         try:
             staff_login = staff_client.post(
                 "/auth/login",

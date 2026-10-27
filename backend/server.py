@@ -14,6 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.config import validate_runtime_config
+from lib.csrf import CSRFMiddleware
 from lib.db import client, ensure_default_tenant, ensure_indexes, raw_db
 from lib.security_headers import SecurityHeadersMiddleware
 from lib.tenancy import TenantContextMiddleware
@@ -103,6 +104,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(TenantContextMiddleware)
+app.add_middleware(CSRFMiddleware, allowed_origins=cors_origins)
 app.add_middleware(
     SecurityHeadersMiddleware,
     hsts_enabled=os.environ.get("APP_ENV", "development").strip().lower()

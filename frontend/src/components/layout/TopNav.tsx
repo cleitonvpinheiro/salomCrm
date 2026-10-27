@@ -35,40 +35,41 @@ export default function TopNav({ title, subtitle, actions }: TopNavProps) {
   });
 
   return (
-    <header className="sticky top-0 z-20 flex h-18 flex-shrink-0 items-center justify-between gap-4 border-b border-[#E7DFD5] bg-[#FAF7F2]/90 px-6 backdrop-blur-md lg:px-8">
-      <div className="flex items-center gap-5">
-        <div className="flex items-center gap-1.5 md:hidden">
+    <header className="sticky top-0 z-20 flex flex-shrink-0 flex-col gap-2 border-b border-[#E7DFD5] bg-[#FAF7F2]/90 px-4 py-3 backdrop-blur-md sm:px-6 md:min-h-18 md:flex-row md:items-center md:justify-between md:gap-3 md:py-3 lg:px-8">
+      <nav aria-label={t("Main navigation")} className="flex max-w-full items-center gap-1 overflow-x-auto pb-1 md:hidden">
           {MOBILE_NAV.filter((item) => !item.adminOnly || user.role === "admin").map((item) => (
             <Link
               key={item.to}
               to={item.to}
               data-testid={item.testid}
-              aria-label=              {t(item.label)}
+              aria-label={t(item.label)}
+              title={t(item.label)}
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
+                "flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors",
                 location.pathname === item.to ? "bg-[#8F4E34] text-white" : "text-stone-500"
               )}
             >
               <item.icon className="h-4.5 w-4.5" />
             </Link>
           ))}
-        </div>
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-stone-900">
+      </nav>
+      <div className="flex min-w-0 items-center justify-between gap-2 md:flex-1">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-heading text-xl font-semibold tracking-tight text-stone-900 sm:text-2xl">
             {t(title)}
           </h1>
-          {subtitle && <p className="text-xs text-stone-500">{t(subtitle)}</p>}
+          {subtitle && <p className="hidden max-w-full truncate text-xs text-stone-500 sm:block">{t(subtitle)}</p>}
         </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="hidden items-center gap-2 rounded-full border border-[#E7DFD5] bg-white px-3 py-1.5 sm:flex">
+        <div className="flex flex-none items-center gap-2 sm:gap-3">
+          <div className="hidden items-center gap-2 rounded-full border border-[#E7DFD5] bg-white px-3 py-1.5 lg:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-[#2D6A4F]" />
           <span className="font-mono text-xs uppercase tracking-wider text-stone-500">
             {stats ? formatLocaleDate(new Date(`${stats.today}T12:00:00`)) : "—"}
           </span>
+          </div>
+          <LanguageSwitcher compact />
+          {actions}
         </div>
-        <LanguageSwitcher />
-        {actions}
       </div>
     </header>
   );

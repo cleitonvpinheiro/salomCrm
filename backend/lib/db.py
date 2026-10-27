@@ -246,6 +246,13 @@ INDEXES: dict[str, list[IndexModel]] = {
             name="account_user",
         ),
     ],
+    "auth_rate_limits": [
+        IndexModel(
+            [("expires_at", ASCENDING)],
+            name="expires_at_ttl",
+            expireAfterSeconds=0,
+        )
+    ],
 }
 
 

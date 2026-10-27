@@ -6,7 +6,13 @@ const OPTIONS: { value: Locale; label: string }[] = [
   { value: "es", label: "Español" },
 ];
 
-export default function LanguageSwitcher({ className = "" }: { className?: string }) {
+export default function LanguageSwitcher({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const { locale, setLocale, t } = useI18n();
   return (
     <label className={`inline-flex items-center gap-2 text-sm ${className}`}>
@@ -14,7 +20,7 @@ export default function LanguageSwitcher({ className = "" }: { className?: strin
       <select
         aria-label={t("Language")}
         data-testid="language-selector"
-        className="h-9 rounded-lg border border-[#E7DFD5] bg-white px-2 text-sm text-stone-700"
+        className={`h-9 rounded-lg border border-[#E7DFD5] bg-white text-stone-700 ${compact ? "w-16 truncate px-1 text-xs lg:w-auto lg:px-2 lg:text-sm" : "px-2 text-sm"}`}
         value={locale}
         onChange={(event) => setLocale(event.target.value as Locale)}
       >

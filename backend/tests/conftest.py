@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8001")
 API_URL = f"{BACKEND_URL}/api"
+TEST_HEADERS = {"Origin": os.environ.get("TEST_CLIENT_ORIGIN", "http://localhost:3000")}
 
 
 def api_url(path: str = "") -> str:
@@ -36,14 +37,16 @@ def client():
         def test_status(client):
             assert client.get("/status").status_code == 200
     """
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(base_url=API_URL, timeout=30.0, headers=TEST_HEADERS) as c:
         yield c
 
 
 @pytest_asyncio.fixture
 async def aclient():
     """Async variant, for tests that also await motor/backend helpers directly."""
-    async with httpx.AsyncClient(base_url=API_URL, timeout=30.0) as c:
+    async with httpx.AsyncClient(
+        base_url=API_URL, timeout=30.0, headers=TEST_HEADERS
+    ) as c:
         yield c
 
 
@@ -56,7 +59,7 @@ TENANT_SLUG = os.environ.get("DEFAULT_TENANT_SLUG", "atelier")
 
 @pytest.fixture
 def admin_client():
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(base_url=API_URL, timeout=30.0, headers=TEST_HEADERS) as c:
         r = c.post("/auth/login", json={**ADMIN_CREDS, "tenant_slug": TENANT_SLUG})
         assert r.status_code == 200, r.text
         yield c
@@ -64,7 +67,7 @@ def admin_client():
 
 @pytest.fixture
 def staff_client():
-    with httpx.Client(base_url=API_URL, timeout=30.0) as c:
+    with httpx.Client(base_url=API_URL, timeout=30.0, headers=TEST_HEADERS) as c:
         r = c.post("/auth/login", json={**STAFF_CREDS, "tenant_slug": TENANT_SLUG})
         assert r.status_code == 200, r.text
         yield c

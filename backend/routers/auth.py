@@ -14,6 +14,7 @@ from datetime import timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from passlib.context import CryptContext
 
+from lib.auth_rate_limit import enforce_auth_rate_limit
 from lib.db import db_name, raw_db
 from lib.password_recovery import (
     recovery_is_configured,
@@ -97,7 +98,10 @@ def _public(user: dict, tenant_slug: str) -> UserPublic:
 
 
 @router.post("/auth/login", response_model=UserPublic)
-async def login(input: LoginRequest, response: Response):
+async def login(input: LoginRequest, request: Request, response: Response):
+    await enforce_auth_rate_limit(
+        request, action="login", limit=20, window_seconds=15 * 60
+    )
     email = input.email.strip().lower()
     tenant_slug = (
         input.tenant_slug or os.environ.get("DEFAULT_TENANT_SLUG", db_name)
@@ -136,7 +140,10 @@ async def login(input: LoginRequest, response: Response):
 
 
 @router.post("/auth/password/forgot")
-async def request_password_reset(input: PasswordResetRequest):
+async def request_password_reset(input: PasswordResetRequest, request: Request):
+    await enforce_auth_rate_limit(
+        request, action="password-forgot", limit=5, window_seconds=60 * 60
+    )
     if not recovery_is_configured():
         raise HTTPException(
             status_code=503,
@@ -201,7 +208,10 @@ async def request_password_reset(input: PasswordResetRequest):
 
 
 @router.post("/auth/password/reset")
-async def reset_password(input: PasswordResetConfirm):
+async def reset_password(input: PasswordResetConfirm, request: Request):
+    await enforce_auth_rate_limit(
+        request, action="password-reset", limit=10, window_seconds=60 * 60
+    )
     token_hash = _reset_token_hash(input.token)
     token_record = await raw_db.password_reset_tokens.find_one_and_delete(
         {"token_hash": token_hash, "expires_at": {"$gt": utcnow()}}

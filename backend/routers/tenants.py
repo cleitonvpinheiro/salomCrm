@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pymongo.errors import DuplicateKeyError
 import logging
 
+from lib.auth_rate_limit import enforce_auth_rate_limit
 from lib.db import db, db_name, raw_db
 from models.auth import UserPublic, UserUpdate
 from models.salon import new_id, utcnow
@@ -106,7 +107,12 @@ async def require_platform_owner(request: Request) -> dict:
 
 
 @router.post("/platform/auth/login", response_model=PlatformUserPublic)
-async def platform_login(input: PlatformLoginRequest, response: Response):
+async def platform_login(
+    input: PlatformLoginRequest, request: Request, response: Response
+):
+    await enforce_auth_rate_limit(
+        request, action="platform-login", limit=20, window_seconds=15 * 60
+    )
     email = input.email.strip().lower()
     user = await raw_db.platform_users.find_one({"email": email, "active": True})
     if not user:

@@ -8,6 +8,7 @@ from lib.security_headers import SecurityHeadersMiddleware
 
 PRODUCTION_ENV = {
     "APP_ENV": "production",
+    "RATE_LIMIT_SECRET": "a-long-random-secret-for-rate-limiting",
     "MONGO_URL": "mongodb+srv://app-user:example-only-secret@cluster.example.net/salon?retryWrites=true&w=majority",
     "DB_NAME": "salon",
     "DEFAULT_TENANT_SLUG": "salon",
@@ -31,6 +32,7 @@ def test_valid_production_configuration_is_accepted():
     [
         ("PLATFORM_OWNER_EMAIL", ""),
         ("PLATFORM_OWNER_PASSWORD", "short"),
+        ("RATE_LIMIT_SECRET", "short"),
         ("COOKIE_SECURE", "false"),
         ("CORS_ORIGINS", "*"),
         ("CORS_ORIGINS", "http://salon.example.com"),
@@ -44,6 +46,7 @@ def test_valid_production_configuration_is_accepted():
         ("SMTP_FROM_EMAIL", ""),
         ("SMTP_PORT", "70000"),
         ("SMTP_USERNAME", "smtp-user"),
+        ("TRUSTED_PROXY_IPS", "not-an-ip"),
     ],
 )
 def test_insecure_production_configuration_is_rejected(key: str, value: str):
