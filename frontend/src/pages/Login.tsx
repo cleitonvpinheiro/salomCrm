@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import {
   fetchPlatformUser,
@@ -90,14 +89,12 @@ export default function Login() {
       <div className="flex flex-1 items-center justify-center px-6">
         <div className="w-full max-w-sm">
         <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#8F4E34]/10 text-[#8F4E34]">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-heading text-2xl font-semibold tracking-tight text-stone-900">Atelier</p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-stone-500">              {t("Salon CRM")}</p>
-            </div>
+          <div className="flex justify-center">
+            <img
+              src="/atelier-logo.png"
+              alt={t("Atelier — A operação do salão, mais simples.")}
+              className="h-40 w-40 object-contain sm:h-44 sm:w-44"
+            />
           </div>
 
           <h2 className="mt-8 font-heading text-2xl font-semibold text-stone-900">

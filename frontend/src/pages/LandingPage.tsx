@@ -14,6 +14,7 @@ import { Link, Navigate } from "react-router-dom";
 import { fetchSessionUser } from "@/lib/session";
 import { useI18n } from "@/lib/i18n";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
+import BrandMark from "@/components/shared/BrandMark";
 
 function salesWhatsappUrl(message: string) {
   const whatsappNumber = (import.meta.env.VITE_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
@@ -78,13 +79,11 @@ export default function LandingPage() {
           className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
         >
           <a href="#inicio" className="flex items-center gap-2.5" aria-label={t("Atelier, home")}>
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8F4E34]/10 text-[#8F4E34]">
-              <Sparkles aria-hidden="true" className="h-5 w-5" />
-            </span>
+            <BrandMark className="h-10 w-10 rounded-full" />
             <span>
               <span className="block font-heading text-xl font-semibold leading-5">Atelier</span>
-              <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.22em] text-stone-500">
-                {t("Gestão para salões")}
+              <span className="mt-1 block text-[9px] tracking-wide text-stone-500">
+                {t("A operação do salão, mais simples.")}
               </span>
             </span>
           </a>
@@ -95,6 +94,9 @@ export default function LandingPage() {
             </a>
             <a className="transition-colors hover:text-[#8F4E34]" href="#recursos">
               {t("Recursos")}
+            </a>
+            <a className="transition-colors hover:text-[#8F4E34]" href="#planos">
+              {t("Planos")}
             </a>
             <a className="transition-colors hover:text-[#8F4E34]" href="#contato">
               {t("Contato")}
@@ -269,6 +271,69 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section id="planos" className="border-y border-[#E7DFD5] bg-white px-5 py-16 sm:px-8 sm:py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#8F4E34]">
+              {t("Planos para cada fase")}
+            </p>
+            <h2 className="mt-4 font-heading text-3xl font-medium tracking-tight text-stone-900 sm:text-4xl">
+              {t("Preços simples, sem cobrança por pessoa.")}
+            </h2>
+            <p className="mt-4 text-base leading-7 text-stone-600">
+              {t("Todos os planos incluem clientes, agenda, serviços, equipe, agendamento online e identidade visual.")}
+            </p>
+          </div>
+
+          <div
+            className="mx-auto mt-10 grid max-w-5xl gap-4 md:grid-cols-3 md:gap-5"
+            data-testid="pricing-plans"
+          >
+            {[
+              { name: "Essencial", price: "59", limit: "Até 2 profissionais" },
+              { name: "Salão", price: "99", limit: "Até 5 profissionais", featured: true },
+              { name: "Studio", price: "149", limit: "Até 10 profissionais" },
+            ].map(({ name, price, limit, featured }) => (
+              <article
+                key={name}
+                className={`flex flex-col rounded-2xl border p-6 sm:p-7 ${
+                  featured
+                    ? "border-[#8F4E34] bg-[#FAF7F2] shadow-[0_16px_40px_-28px_rgba(65,46,33,0.5)]"
+                    : "border-[#E7DFD5] bg-white"
+                }`}
+              >
+                {featured && (
+                  <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#8F4E34]">
+                    {t("Mais escolhido")}
+                  </p>
+                )}
+                <h3 className="font-heading text-xl font-semibold text-stone-900">{t(name)}</h3>
+                <p className="mt-4 flex items-baseline gap-1 text-stone-900">
+                  <span className="text-sm font-medium text-stone-500">R$</span>
+                  <span className="font-heading text-4xl font-semibold tracking-tight">{price}</span>
+                  <span className="text-sm text-stone-500">{t("/mês")}</span>
+                </p>
+                <p className="mt-3 text-sm font-medium text-stone-700">{t(limit)}</p>
+                <p className="mt-4 flex-1 text-sm leading-6 text-stone-500">
+                  {t("Acesso à plataforma para toda a equipe do salão.")}
+                </p>
+                <SalesCta
+                  message={t("Quero conhecer o plano {plan}", { plan: t(name) })}
+                  className={`mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8F4E34] ${
+                    featured
+                      ? "bg-[#8F4E34] text-white hover:bg-[#713B27]"
+                      : "border border-[#E7DFD5] text-[#713B27] hover:bg-[#F7F2EB]"
+                  }`}
+                />
+              </article>
+            ))}
+          </div>
+          <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-stone-500">
+            {t("Valores sugeridos para validação com salões; condições finais serão confirmadas no lançamento.")}
+          </p>
+        </div>
+      </section>
+
       <section className="px-5 pb-16 sm:px-8 sm:pb-24">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#221C18] px-6 py-12 text-center sm:px-12 sm:py-16">
           <div className="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-[#8F4E34]/30 blur-3xl" />
@@ -297,12 +362,10 @@ export default function LandingPage() {
       <footer id="contato" className="border-t border-[#E7DFD5] bg-[#F5EFE6]">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-9 sm:px-8 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8F4E34]/10 text-[#8F4E34]">
-              <Sparkles aria-hidden="true" className="h-5 w-5" />
-            </span>
+            <BrandMark className="h-10 w-10 rounded-full" />
             <div>
               <p className="font-heading text-lg font-semibold text-stone-900">Atelier</p>
-              <p className="text-xs text-stone-500">{t("Gestão para salões")}</p>
+              <p className="text-xs text-stone-500">{t("A operação do salão, mais simples.")}</p>
             </div>
           </div>
           <div className="max-w-md text-sm leading-6 text-stone-500">

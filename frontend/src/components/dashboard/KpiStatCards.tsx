@@ -29,7 +29,7 @@ export default function KpiStatCards() {
         >
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-wider text-stone-500">{label}</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F3ECE1] text-[#8F4E34]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F3ECE1] text-[var(--brand-primary,#8F4E34)]">
               <Icon className="h-4 w-4" />
             </div>
           </div>

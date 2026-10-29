@@ -1,7 +1,16 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
+import { eachDayOfInterval, format, parseISO, startOfMonth, endOfMonth } from "date-fns";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { BarChart3, Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { apiGet } from "@/lib/api";
@@ -57,6 +66,23 @@ function ReportsDashboard() {
   const scheduledCount = appointments.filter((appointment) => appointment.status === "scheduled").length;
   const cancelledCount = appointments.filter((appointment) => appointment.status === "cancelled").length;
   const revenue = completed.reduce((total, appointment) => total + appointment.service_price, 0);
+  const dailyRevenue = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const appointment of completed) {
+      totals.set(
+        appointment.date,
+        (totals.get(appointment.date) ?? 0) + appointment.service_price
+      );
+    }
+
+    return eachDayOfInterval({
+      start: parseISO(`${fromDate}T12:00:00`),
+      end: parseISO(`${toDate}T12:00:00`),
+    }).map((day) => {
+      const date = format(day, "yyyy-MM-dd");
+      return { date, revenue: totals.get(date) ?? 0 };
+    });
+  }, [completed, fromDate, toDate]);
 
   const { byStylist, byService } = useMemo(() => {
     const aggregate = (getName: (appointment: Appointment) => string) => {
@@ -224,13 +250,92 @@ function ReportsDashboard() {
                   className="rounded-2xl border border-[#E5DCD0] bg-white p-5 shadow-[0_1px_3px_0_rgba(44,30,20,0.04),0_6px_16px_-4px_rgba(44,30,20,0.06)]"
                 >
                   <p className="font-mono text-xs uppercase tracking-wider text-stone-500">{label}</p>
-                  <p className={`mt-3 font-heading text-3xl font-semibold ${accent ? "text-[#8F4E34]" : "text-stone-900"}`}>
+                  <p className={`mt-3 font-heading text-3xl font-semibold ${accent ? "text-[var(--brand-primary,#8F4E34)]" : "text-stone-900"}`}>
                     {value}
                   </p>
                   <p className="mt-1 text-xs text-stone-500">{hint}</p>
                 </article>
               ))}
             </div>
+            <section
+              className="rounded-2xl border border-[#E5DCD0] bg-white p-4 sm:p-5"
+              aria-labelledby="daily-revenue-title"
+              data-testid="reports-revenue-chart"
+            >
+              <h2
+                id="daily-revenue-title"
+                className="font-heading text-lg font-semibold text-stone-900"
+              >
+                {t("Daily revenue")}
+              </h2>
+              {completed.length ? (
+                <>
+                  <div
+                    className="mt-4 h-64 w-full"
+                    role="img"
+                    aria-label={t("Daily revenue chart for {month}", { month: monthLabel })}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={dailyRevenue} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
+                        <CartesianGrid stroke="#EEE7DE" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(value: string) => format(parseISO(`${value}T12:00:00`), "d")}
+                          interval="preserveStartEnd"
+                          tick={{ fill: "#78716C", fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={{ stroke: "#E5DCD0" }}
+                        />
+                        <YAxis
+                          width={72}
+                          tickFormatter={(value: number) => formatBRL(value)}
+                          tick={{ fill: "#78716C", fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip
+                          labelFormatter={(value) =>
+                            formatDate(parseISO(`${String(value)}T12:00:00`), {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })
+                          }
+                          formatter={(value) => [formatBRL(Number(value ?? 0)), t("Revenue")]}
+                          contentStyle={{
+                            borderColor: "#E5DCD0",
+                            borderRadius: "0.75rem",
+                            boxShadow: "0 8px 24px rgba(44,30,20,0.12)",
+                          }}
+                        />
+                        <Bar dataKey="revenue" name={t("Revenue")} fill="var(--brand-primary, #8F4E34)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <table className="sr-only">
+                    <caption>{t("Daily revenue chart for {month}", { month: monthLabel })}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">{t("Date")}</th>
+                        <th scope="col">{t("Revenue")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailyRevenue.filter((day) => day.revenue > 0).map((day) => (
+                        <tr key={day.date}>
+                          <td>{formatDate(parseISO(`${day.date}T12:00:00`))}</td>
+                          <td>{formatBRL(day.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : (
+                <p className="py-8 text-center text-sm text-stone-500">
+                  {t("No completed appointments in this period.")}
+                </p>
+              )}
+            </section>
             <div className="grid gap-6 xl:grid-cols-2">
               {renderBreakdown("Appointments by stylist", byStylist)}
               {renderBreakdown("Service performance", byService)}

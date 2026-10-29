@@ -1,8 +1,8 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
 import { fetchSessionUser } from "@/lib/session";
 import { UserContext } from "@/lib/userContext";
+import BrandMark from "@/components/shared/BrandMark";
 
 // Gate for the whole workspace: resolves the session cookie once, shares the user
 // through context, and bounces to /login when there is no session.
@@ -17,7 +17,7 @@ export default function RequireAuth() {
   if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <Sparkles className="h-6 w-6 animate-pulse text-[#8F4E34]" />
+        <BrandMark className="h-10 w-10 animate-pulse rounded-full" />
       </div>
     );
   }

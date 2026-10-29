@@ -104,12 +104,17 @@ export default function AgendaPage() {
       title={t("Agenda")}
       subtitle={t("Bookings by day — completing a visit stamps the client's last visit")}
       actions={
-        <Button data-testid="new-appointment-button" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> {t("New appointment")}
+        <Button
+          aria-label={t("New appointment")}
+          data-testid="new-appointment-button"
+          onClick={openCreate}
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">{t("New appointment")}</span>
         </Button>
       }
     >
-      <div className="space-y-5 px-6 py-6 lg:px-8">
+      <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         {/* day navigation + week strip */}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
@@ -155,7 +160,7 @@ export default function AgendaPage() {
             </span>
           </h2>
         </div>
-        <div className="flex flex-wrap gap-1.5" data-testid="agenda-week-strip">
+        <div className="flex gap-1.5 overflow-x-auto pb-2" data-testid="agenda-week-strip">
           {weekDays.map((d) => {
             const iso = format(d, "yyyy-MM-dd");
             const activeDay = iso === date;
@@ -163,10 +168,12 @@ export default function AgendaPage() {
               <button
                 key={iso}
                 data-testid={`agenda-day-${iso}`}
+                aria-label={formatDate(d, { weekday: "long", day: "numeric", month: "long" })}
+                aria-pressed={activeDay}
                 onClick={() => setSelectedDate(iso)}
-                className={`flex h-16 w-14 flex-col items-center justify-center rounded-xl border text-center transition-colors duration-150 ease-out ${
+                className={`flex h-16 w-14 flex-none flex-col items-center justify-center rounded-xl border text-center transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-primary,#8F4E34)] ${
                   activeDay
-                    ? "border-transparent bg-[#8F4E34] text-white"
+                    ? "border-transparent bg-[var(--brand-primary,#8F4E34)] text-primary-foreground"
                     : "border-[#E7DFD5] bg-white text-stone-600 hover:bg-[#F3ECE1]"
                 }`}
               >
@@ -231,7 +238,7 @@ export default function AgendaPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-20 flex-none rounded-xl bg-[#F3ECE1] px-2 py-2 text-center">
-                      <p className="font-mono text-sm font-semibold text-[#8F4E34]">{a.time}</p>
+                      <p className="font-mono text-sm font-semibold text-[var(--brand-primary,#8F4E34)]">{a.time}</p>
                       <p className="font-mono text-[10px] uppercase text-stone-500">
                         {addMinutes(a.time, a.service_duration_min)}
                       </p>
@@ -266,7 +273,7 @@ export default function AgendaPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="bg-white"
+                          className="h-11 bg-white sm:h-9"
                           data-testid={`complete-appointment-${a.id}`}
                           disabled={completeMutation.isPending}
                           onClick={() => completeMutation.mutate(a.id)}
@@ -276,6 +283,7 @@ export default function AgendaPage() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-11 sm:h-9"
                           data-testid={`cancel-appointment-${a.id}`}
                           disabled={cancelMutation.isPending}
                           onClick={() => cancelMutation.mutate(a.id)}
@@ -286,7 +294,7 @@ export default function AgendaPage() {
                     )}
                     {a.status !== "completed" && (
                       <Button
-                        size="icon-sm"
+                        size="icon"
                         variant="ghost"
                         aria-label={t("Edit appointment")}
                         data-testid={`edit-appointment-${a.id}`}
@@ -300,7 +308,7 @@ export default function AgendaPage() {
                     )}
                     {user.role === "admin" && (
                       <Button
-                        size="icon-sm"
+                        size="icon"
                         variant="ghost"
                         aria-label={t("Remove appointment")}
                         data-testid={`delete-appointment-${a.id}`}

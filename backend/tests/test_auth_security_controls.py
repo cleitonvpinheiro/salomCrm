@@ -166,3 +166,40 @@ async def test_csrf_middleware_accepts_same_origin_referer():
     )
 
     assert messages[0]["status"] == 200
+
+
+@pytest.mark.asyncio
+async def test_csrf_middleware_accepts_loopback_frontend_origin():
+    async def app(scope, receive, send):
+        await send(
+            {"type": "http.response.start", "status": 200, "headers": []}
+        )
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    messages = []
+
+    async def send(message):
+        messages.append(message)
+
+    middleware = CSRFMiddleware(
+        app,
+        allowed_origins=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+    )
+    await middleware(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/auth/logout",
+            "headers": [
+                (b"cookie", b"atelier_session=session"),
+                (b"origin", b"http://127.0.0.1:3000"),
+            ],
+        },
+        None,
+        send,
+    )
+
+    assert messages[0]["status"] == 200

@@ -15,6 +15,9 @@ const PlatformPage = lazy(() => import("@/pages/PlatformPage"));
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const BookingSettingsPage = lazy(() => import("@/pages/BookingSettingsPage"));
+const PublicBookingPage = lazy(() => import("@/pages/PublicBookingPage"));
+const BrandingSettingsPage = lazy(() => import("@/pages/BrandingSettingsPage"));
 
 const pageFallback = (
   <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -34,6 +37,7 @@ export default function App() {
           <Route path="/platform/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/agendar/:slug" element={<PublicBookingPage />} />
           <Route element={<RequirePlatform />}>
             <Route path="/platform" element={<PlatformPage />} />
           </Route>
@@ -44,6 +48,8 @@ export default function App() {
             <Route path="/servicos" element={<ServicesPage />} />
             <Route path="/team" element={<TeamPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/booking-settings" element={<BookingSettingsPage />} />
+            <Route path="/branding" element={<BrandingSettingsPage />} />
           </Route>
         </Routes>
       </Suspense>

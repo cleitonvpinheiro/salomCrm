@@ -117,8 +117,12 @@ export default function PlatformPage() {
     },
   });
   const signOut = async () => {
-    await platformLogout();
-    navigate("/login", { replace: true });
+    try {
+      await platformLogout();
+      navigate("/login", { replace: true });
+    } catch {
+      toast.error(t("Could not sign out. Please try again."));
+    }
   };
   const set = (key: keyof CreateTenantPayload, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));

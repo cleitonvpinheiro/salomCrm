@@ -190,7 +190,7 @@ export default function ClientDetailDrawer({
                 {client.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full bg-[#FBEFE9] px-2.5 py-0.5 text-[11px] font-medium text-[#8F4E34]"
+                    className="rounded-full bg-[#FBEFE9] px-2.5 py-0.5 text-[11px] font-medium text-[var(--brand-primary,#8F4E34)]"
                   >
                     {tag}
                   </span>

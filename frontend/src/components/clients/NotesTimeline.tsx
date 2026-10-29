@@ -4,7 +4,7 @@ import type { Note, NoteKind } from "@/lib/types";
 
 const KIND_META: Record<NoteKind, { label: string; icon: typeof Scissors; className: string }> = {
   visit: { label: "Visit", icon: Scissors, className: "bg-[#EBF4EE] text-[#235937]" },
-  formula: { label: "Formula", icon: Palette, className: "bg-[#FBEFE9] text-[#8F4E34]" },
+  formula: { label: "Formula", icon: Palette, className: "bg-[#FBEFE9] text-[var(--brand-primary,#8F4E34)]" },
   allergy: { label: "Allergy", icon: ShieldAlert, className: "bg-[#FDF2E9] text-[#9A4B1A]" },
   general: { label: "Note", icon: StickyNote, className: "bg-[#F3ECE1] text-[#57534E]" },
 };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Mail, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { requestPasswordReset } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -40,16 +40,12 @@ export default function ForgotPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-[#FAF7F2] px-5 py-12">
       <section className="w-full max-w-md rounded-2xl border border-[#E7DFD5] bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#8F4E34]/10 text-[#8F4E34]">
-            <Sparkles aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-heading text-2xl font-semibold text-stone-900">Atelier</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-stone-500">
-              {t("Password recovery")}
-            </p>
-          </div>
+        <div className="flex justify-center">
+          <img
+            src="/atelier-logo.png"
+            alt={t("Atelier — A operação do salão, mais simples.")}
+            className="h-36 w-36 object-contain"
+          />
         </div>
 
         {submitted ? (

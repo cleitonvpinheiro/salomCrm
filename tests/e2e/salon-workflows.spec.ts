@@ -32,6 +32,25 @@ test("shows the public landing page without horizontal overflow", async ({ page 
     "href",
     "/login"
   );
+  const plans = page.getByTestId("pricing-plans");
+  await expect(page.getByText("Planos para cada fase")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Preços simples, sem cobrança por pessoa." })
+  ).toBeVisible();
+  await expect(plans).toContainText("Essencial");
+  await expect(plans).toContainText("Salão");
+  await expect(plans).toContainText("Studio");
+  await expect(plans).toContainText("59");
+  await expect(plans).toContainText("99");
+  await expect(plans).toContainText("149");
+  await expect(plans).toContainText("Até 2 profissionais");
+  await expect(plans).toContainText("Até 5 profissionais");
+  await expect(plans).toContainText("Até 10 profissionais");
+  await expect(
+    page.getByText(
+      "Valores sugeridos para validação com salões; condições finais serão confirmadas no lançamento."
+    )
+  ).toBeVisible();
 
   const pageWidth = await page.evaluate(() => ({
     content: document.documentElement.scrollWidth,
@@ -56,6 +75,128 @@ test("keeps company and platform sign-in on distinct routes", async ({ page }) =
   await page.getByRole("link", { name: "Back to company workspace sign in" }).click();
   await expect(page).toHaveURL("/login");
   await expect(page.getByTestId("login-tenant-input")).toBeVisible();
+});
+
+test("mobile navigation provides a visible sign-out button", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) > 600, "Mobile navigation only");
+  await useEnglish(page);
+  let logoutRequested = false;
+
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "admin-1",
+        name: "Salon Admin",
+        email: "admin@example.com",
+        role: "admin",
+        tenant_slug: "atelier",
+      }),
+    })
+  );
+  await page.route("**/api/branding", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        salon_name: "Atelier Demo",
+        slug: "atelier",
+        logo_data: null,
+        primary_color: "#8F4E34",
+        accent_color: "#D97757",
+      }),
+    })
+  );
+  await page.route("**/api/stats", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        today: "2026-10-27",
+        total_clients: 0,
+        active_stylists: 0,
+        visits_this_month: 0,
+        recall_due: 0,
+        unassigned: 0,
+        archived_clients: 0,
+      }),
+    })
+  );
+  await page.route("**/api/auth/logout", async (route) => {
+    logoutRequested = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await page.goto("/app");
+  const logoutButton = page.getByTestId("mobile-logout-button");
+  await expect(logoutButton).toBeVisible();
+  await expect(logoutButton).toHaveText("Sign out");
+  await logoutButton.click();
+
+  await expect(page).toHaveURL("/login");
+  expect(logoutRequested).toBe(true);
+});
+
+test("mobile sign-out reports API failures without an unhandled background error", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) > 600, "Mobile navigation only");
+  await useEnglish(page);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "admin-1",
+        name: "Salon Admin",
+        email: "admin@example.com",
+        role: "admin",
+        tenant_slug: "atelier",
+      }),
+    })
+  );
+  await page.route("**/api/branding", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        salon_name: "Atelier Demo",
+        slug: "atelier",
+        logo_data: null,
+        primary_color: "#8F4E34",
+        accent_color: "#D97757",
+      }),
+    })
+  );
+  await page.route("**/api/stats", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        today: "2026-10-27",
+        total_clients: 0,
+        active_stylists: 0,
+        visits_this_month: 0,
+        recall_due: 0,
+        unassigned: 0,
+        archived_clients: 0,
+      }),
+    })
+  );
+  await page.route("**/api/auth/logout", (route) => route.abort());
+
+  await page.goto("/app");
+  await page.getByTestId("mobile-logout-button").click();
+
+  await expect(page.getByText("Could not sign out. Please try again.")).toBeVisible();
+  await expect(page).toHaveURL("/app");
+  expect(pageErrors).toEqual([]);
 });
 
 test("forgot-password entry preserves salon and platform account type", async ({ page }) => {

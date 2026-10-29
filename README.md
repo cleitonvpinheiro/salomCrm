@@ -12,11 +12,33 @@ vários salões, mantendo os registros separados por espaço de trabalho (tenant
 - Cadastro, busca, histórico e arquivamento/restauração de clientes.
 - Agenda para criar, reagendar, cancelar e concluir atendimentos.
 - Bloqueio de horários sobrepostos para o mesmo profissional.
+- Agendamento online por link público, com horários do salão e de cada profissional.
 - Cadastro de profissionais, serviços e contas da equipe.
+- Identidade visual por salão, com nome, logotipo e cores personalizados pelo administrador.
 - Perfis de salão (`admin` e `staff`) e painel separado para administração da plataforma.
 - Separação de dados por salão, paginação e indicadores operacionais.
 - Interface em português do Brasil, inglês e espanhol.
 - Recuperação de senha por e-mail, quando SMTP está configurado.
+
+## Proposta inicial de planos e valores
+
+Os valores abaixo são hipóteses comerciais para validar com salões e profissionais
+antes do lançamento. Ainda não representam cobrança ativa no sistema nem uma oferta
+comercial definitiva.
+
+| Plano sugerido | Equipe incluída | Valor mensal sugerido |
+|---|---:|---:|
+| Solo | 1 profissional | R$ 39 |
+| Essencial | Até 2 profissionais | R$ 59 |
+| Salão | Até 5 profissionais | R$ 99 |
+| Studio | Até 10 profissionais | R$ 149 |
+
+A proposta é manter uma mensalidade por salão, sem cobrança adicional por usuário
+dentro do limite do plano. Os recursos centrais — gestão de clientes, agenda, serviços,
+agendamento online e identidade visual — estão previstos para todos os planos; os
+limites variam pelo tamanho da equipe. O plano Solo é direcionado a quem trabalha
+individualmente. Planos, limites, preços, teste gratuito e condições para clientes
+fundadores ainda precisam ser validados e implementados antes de iniciar cobranças.
 
 ## Tecnologias
 
@@ -65,7 +87,9 @@ Copy-Item .env.example .env
 ```
 
 Edite `backend/.env` e configure `MONGO_URL` e `DB_NAME` para apontar para um banco
-local de desenvolvimento. Não use dados de produção para testes ou demonstrações.
+local de desenvolvimento. Mantenha `http://localhost:3000` e
+`http://127.0.0.1:3000` em `CORS_ORIGINS` se puder acessar o frontend pelos dois
+endereços. Não use dados de produção para testes ou demonstrações.
 
 Para carregar os dados demonstrativos:
 
@@ -105,11 +129,88 @@ yarn dev
 A aplicação fica em `http://localhost:3000`. Durante o desenvolvimento, o Vite
 encaminha as chamadas `/api` para `http://localhost:8001`.
 
+### Testar em outro equipamento na rede local
+
+1. Conecte os dois equipamentos à mesma rede Wi-Fi. No computador que executa o
+   Atelier, use `ipconfig` para encontrar o endereço IPv4 do adaptador Wi-Fi; neste
+   ambiente, por exemplo, o endereço é `192.168.1.239`.
+2. Para evitar que uma reconexão do celular interrompa o carregamento de módulos do
+   servidor de desenvolvimento/HMR, gere e sirva a versão de produção local. No
+   terminal do frontend, pare `yarn dev` com `Ctrl+C` e execute:
+
+   ```powershell
+   yarn build
+   yarn preview --host 0.0.0.0 --port 3000 --strictPort
+   ```
+
+   O preview usa os arquivos compilados e mantém o proxy `/api` para o backend.
+   Não execute `yarn dev` e `yarn preview` simultaneamente na porta 3000.
+3. Se a API já estiver usando apenas a origem local padrão, pare-a e inicie-a de novo
+   no terminal do backend, permitindo também a origem do computador na rede:
+
+   ```powershell
+   $env:CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.239:3000"
+   python -m uvicorn server:app --host 127.0.0.1 --port 8001 --reload
+   ```
+
+   Substitua `192.168.1.239` pelo IPv4 encontrado no primeiro passo. O frontend já
+   escuta nas interfaces de rede; no outro equipamento, abra
+   `http://192.168.1.239:3000`, também substituindo o endereço pelo correto.
+4. Se o Firewall do Windows bloquear a conexão, abra o PowerShell como administrador
+   e crie uma regra limitada à porta do frontend e à sub-rede local. O perfil abaixo
+   corresponde ao Wi-Fi classificado como Público neste ambiente:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "Atelier LAN test (TCP 3000)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 -RemoteAddress LocalSubnet -Profile Public
+   ```
+
+   Ao terminar os testes, remova a regra no PowerShell:
+
+   ```powershell
+   Remove-NetFirewallRule -DisplayName "Atelier LAN test (TCP 3000)"
+   ```
+
+Se a conexão falhar mesmo com a regra ativa, verifique se a rede Wi-Fi não isola os
+dispositivos entre si. Mantenha a API na interface local (`127.0.0.1`) e não abra as
+portas `8001` (API) ou do MongoDB para a rede. O servidor Vite é apenas para
+desenvolvimento: não o exponha à Internet.
+
 ### Administração da plataforma
 
 Para habilitar o acesso master em desenvolvimento, configure
 `PLATFORM_OWNER_EMAIL` e `PLATFORM_OWNER_PASSWORD` em `backend/.env` antes de iniciar
 a API. A conta master é separada das contas dos salões.
+
+### Agendamento online
+
+Para liberar reservas online em desenvolvimento:
+
+1. Entre no Atelier com uma conta de administrador do salão.
+2. Cadastre ao menos um serviço ativo e um profissional ativo.
+3. Abra **Agendamento online** no menu e configure os dias/horários em que o salão
+   funciona e a disponibilidade semanal de cada profissional.
+4. Ative o recurso e compartilhe o link público exibido nessa tela:
+   `http://localhost:3000/agendar/<slug-do-salao>`.
+
+O agendamento começa desativado. A página só oferece horários na interseção dos
+horários do salão e do profissional; os horários ocupados também são excluídos. O
+cliente escolhe serviço, profissional ou qualquer profissional disponível, data e
+horário, informa nome e telefone e recebe confirmação imediata. Os horários são
+oferecidos em intervalos de 30 minutos, respeitando a duração do serviço, e as reservas
+podem ser feitas para hoje ou até 30 dias à frente. O nome e o telefone são associados
+ao cadastro de clientes do salão.
+
+Esta versão não envia notificações e não oferece alteração ou cancelamento pela página
+pública; para isso, o cliente deve falar diretamente com o salão. A API limita as
+tentativas de reserva pública por IP.
+
+### Identidade visual do salão
+
+O administrador de cada salão pode abrir **Identidade visual** no menu para alterar
+o nome exibido, enviar/remover o logotipo e escolher as cores principal e de destaque.
+São aceitos arquivos PNG, JPEG ou WebP de até 2 MB. As alterações se aplicam ao painel
+autenticado do salão e à página pública de agendamento; não alteram o login da
+plataforma. Cada salão mantém sua própria identidade visual.
 
 ## Configuração
 

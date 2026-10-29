@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   BarChart3,
+  CalendarCheck,
   CalendarDays,
   LogOut,
+  Palette,
   Scissors,
-  Sparkles,
   Tag,
   Users,
   UserRoundCog,
@@ -18,9 +19,11 @@ import { initials } from "@/lib/format";
 import { useUser } from "@/lib/userContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import BrandMark from "@/components/shared/BrandMark";
 import { useI18n } from "@/lib/i18n";
+import type { SalonBranding } from "@/lib/booking";
 
-export default function Sidebar() {
+export default function Sidebar({ branding }: { branding?: SalonBranding }) {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useUser();
@@ -44,23 +47,37 @@ export default function Sidebar() {
     ...(user.role === "admin"
       ? [{ to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" }]
       : []),
+    ...(user.role === "admin"
+      ? [{ to: "/booking-settings", label: "Online booking", icon: CalendarCheck, testid: "nav-booking-settings" }]
+      : []),
+    ...(user.role === "admin"
+      ? [{ to: "/branding", label: "Salon appearance", icon: Palette, testid: "nav-branding" }]
+      : []),
   ];
 
   const handleLogout = async () => {
-    await logout();
-    toast.success(t("Signed out — see you soon"));
-    navigate("/login", { replace: true });
+    try {
+      await logout();
+      toast.success(t("Signed out — see you soon"));
+      navigate("/login", { replace: true });
+    } catch {
+      toast.error(t("Could not sign out. Please try again."));
+    }
   };
 
   return (
     <aside className="hidden w-64 flex-shrink-0 flex-col justify-between border-r border-[#2E2520] bg-[#221C18] text-[#F5EFE6] md:flex">
       <div>
         <div className="flex items-center gap-3 px-6 pb-6 pt-7">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D97757]/15 text-[#D97757]">
-            <Sparkles className="h-5 w-5" />
-          </div>
+          <BrandMark
+            src={branding?.logo_data}
+            alt={branding?.salon_name}
+            className="h-11 w-11 rounded-full bg-white/10 p-1"
+          />
           <div>
-            <p className="font-heading text-xl font-semibold tracking-tight">Atelier</p>
+            <p className="font-heading text-xl font-semibold tracking-tight">
+              {branding?.salon_name ?? "Atelier"}
+            </p>
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#A89F91]">
               {user.tenant_slug} · CRM
             </p>
@@ -77,7 +94,7 @@ export default function Sidebar() {
                 className={cn(
                   "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ease-out",
                   active
-                    ? "bg-[#342C26] text-[#F5EFE6]"
+                    ? "bg-[var(--brand-primary,#342C26)] text-primary-foreground"
                     : "text-[#A89F91] hover:bg-[#342C26]/60 hover:text-[#F5EFE6]"
                 )}
               >
@@ -86,7 +103,7 @@ export default function Sidebar() {
                   {t(label)}
                 </span>
                 {active && stats && (
-                  <span className="font-mono text-xs text-[#D97757]">
+                  <span className="font-mono text-xs text-[var(--brand-accent,#D97757)]">
                     {to === "/app"
                       ? stats.total_clients
                       : to === "/stylists"
@@ -104,7 +121,7 @@ export default function Sidebar() {
 
       <div className="px-6 pb-6">
         <div className="rounded-xl border border-[#2E2520] bg-[#342C26]/50 p-4">
-          <div className="flex items-center gap-2 text-[#D97757]">
+          <div className="flex items-center gap-2 text-[var(--brand-accent,#D97757)]">
             <CalendarDays className="h-4 w-4" />
             <p className="font-mono text-[10px] uppercase tracking-[0.22em]">{t("Recall due")}</p>
           </div>
@@ -125,7 +142,7 @@ export default function Sidebar() {
           className="mt-3 flex items-center gap-3 rounded-xl border border-[#2E2520] bg-[#342C26]/50 p-3"
           data-testid="sidebar-user-chip"
         >
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#D97757]/15 font-heading text-sm font-semibold text-[#D97757]">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[#D97757]/15 font-heading text-sm font-semibold text-[var(--brand-accent,#D97757)]">
             {initials(user.name)}
           </span>
           <div className="min-w-0 flex-1">

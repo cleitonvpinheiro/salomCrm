@@ -134,18 +134,22 @@ export default function ClientsDashboard() {
         </Button>
       }
     >
-      <div className="space-y-5 px-6 py-6 lg:px-8">
+      <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         <KpiStatCards />
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-2" data-testid="stylist-filter-tabs">
+          <div
+            className="-mx-4 flex max-w-full items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+            data-testid="stylist-filter-tabs"
+          >
             {filterTabs.map((tab) => (
               <Button
                 key={tab.id}
                 size="sm"
                 variant={stylistFilter === tab.id ? "default" : "outline"}
-                className={`rounded-full ${stylistFilter === tab.id ? "" : "bg-white"}`}
+                className={`flex-none rounded-full ${stylistFilter === tab.id ? "" : "bg-white"}`}
                 data-testid={`stylist-filter-tab-${tab.id}`}
+                aria-pressed={stylistFilter === tab.id}
                 onClick={() => setStylistFilter(tab.id)}
               >
                 {tab.color && (
@@ -160,8 +164,9 @@ export default function ClientsDashboard() {
             <Button
               size="sm"
               variant={showArchived ? "default" : "outline"}
-              className={`rounded-full ${showArchived ? "" : "bg-white"}`}
+              className={`flex-none rounded-full ${showArchived ? "" : "bg-white"}`}
               data-testid="show-archived-clients"
+              aria-pressed={showArchived}
               onClick={() => setShowArchived((current) => !current)}
             >
               {showArchived ? t("Hide archived") : t("Archived clients")}
@@ -172,11 +177,12 @@ export default function ClientsDashboard() {
               ) : null}
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-stone-400" />
               <Input
                 id="client-search"
+                aria-label={t("Search clients")}
                 data-testid="client-search-input"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -185,7 +191,7 @@ export default function ClientsDashboard() {
               />
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v)}>
-              <SelectTrigger data-testid="sort-select" className="w-48 bg-white">
+              <SelectTrigger data-testid="sort-select" aria-label={t("Sort")} className="w-full bg-white sm:w-48">
                 <SelectValue>
                   {() => t(SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort")}
                 </SelectValue>

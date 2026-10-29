@@ -24,6 +24,7 @@ from routers.salon import router as salon_router
 from routers.auth import router as auth_router
 from routers.services import router as services_router
 from routers.appointments import router as appointments_router
+from routers.bookings import router as bookings_router
 from routers.tenants import ensure_platform_owner
 from routers.tenants import router as tenants_router
 
@@ -76,6 +77,7 @@ api_router.include_router(salon_router)
 api_router.include_router(auth_router)
 api_router.include_router(services_router)
 api_router.include_router(appointments_router)
+api_router.include_router(bookings_router)
 api_router.include_router(tenants_router)
 
 
@@ -90,7 +92,10 @@ app.include_router(api_router)
 
 cors_origins = [
     origin.strip()
-    for origin in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+    for origin in os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
     if origin.strip()
 ]
 if "*" in cors_origins:
