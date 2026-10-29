@@ -1,0 +1,51 @@
+services:
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: deploy/production.env
+    environment:
+      APP_ENV: production
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXY_IPS: 172.28.0.0/24
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/ready', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - atelier
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - atelier
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  atelier:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

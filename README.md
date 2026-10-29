@@ -317,8 +317,26 @@ CORS explícitas, MongoDB remoto autenticado com TLS, segredos fortes e SMTP; fa
 verifique backups; e valide a implantação em staging. Consulte o
 [manual do sistema](docs/SISTEMA.md) para os requisitos de configuração e migração.
 
-O repositório ainda não inclui pipeline de release, monitoramento operacional ou
-manifests de implantação específicos de provedor. Os limites de autenticação e a
+### Implantação com Docker Compose (VPS)
+
+O repositório inclui `docker-compose.prod.yml` (API FastAPI + Caddy servindo o frontend
+e fazendo proxy de `/api`, com HTTPS automático) e um workflow de CI em
+`.github/workflows/ci.yml`. No servidor, com um domínio apontando para ele e as portas
+80/443 abertas:
+
+```bash
+cp deploy/production.env.example deploy/production.env
+# preencha o arquivo (domínio, MongoDB exclusivo de produção, segredos, SMTP)
+docker compose --env-file deploy/production.env -f docker-compose.prod.yml up -d --build
+curl -fsS https://SEU_DOMINIO/api/booking/public/SEU_SLUG
+```
+
+`deploy/production.env` contém segredos e é ignorado pelo Git. Não execute `seed.py`
+em produção; o primeiro acesso é feito pela conta master em `/platform/login`, que cria
+os salões. Para uma implantação gratuita ou de baixo custo (Oracle Always Free, Atlas Free
+e backup), siga o [guia de implantação gratuita](docs/DEPLOY_GRATIS.md).
+
+O repositório ainda não inclui monitoramento operacional. Os limites de autenticação e a
 validação CSRF já estão implementados na API, mas não substituem WAF/mitigação de DDoS,
 monitoramento, backups testados, gestão de segredos e validação em staging. Configure
 `RATE_LIMIT_SECRET` no gerenciador de segredos em produção; se houver proxy reverso,

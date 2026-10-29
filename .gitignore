@@ -35,6 +35,7 @@ dist
 .env
 .env.*
 !.env.example
+deploy/production.env
 
 *token.json*
 *credentials.json*
