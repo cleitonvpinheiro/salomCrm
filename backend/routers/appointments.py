@@ -16,6 +16,7 @@ from models.pagination import Page
 from models.salon import (
     AppointmentCreate,
     AppointmentRead,
+    AppointmentServiceRead,
     AppointmentUpdate,
     new_id,
     utcnow,
@@ -28,7 +29,11 @@ router = APIRouter(dependencies=[Depends(require_user)])
 async def _resolve_maps(appointments: list[dict]):
     client_ids = {a["client_id"] for a in appointments}
     stylist_ids = {a["stylist_id"] for a in appointments if a.get("stylist_id")}
-    service_ids = {a["service_id"] for a in appointments}
+    service_ids = {
+        service_id
+        for appointment in appointments
+        for service_id in appointment.get("service_ids", [appointment["service_id"]])
+    }
     clients = {
         d["id"]: d
         for d in await db.clients.find(
@@ -55,21 +60,59 @@ def _read(doc: dict, clients: dict, stylists: dict, services: dict) -> Appointme
     normalize_doc_dt(doc)
     client = clients.get(doc.get("client_id"))
     stylist = stylists.get(doc.get("stylist_id") or "")
-    service = services.get(doc.get("service_id"))
+    service_ids = doc.get("service_ids") or [doc["service_id"]]
+    saved_items = {
+        item["service_id"]: item for item in doc.get("service_items", [])
+    }
+    service_items = []
+    for service_id in service_ids:
+        saved = saved_items.get(service_id, {})
+        service = services.get(service_id, {})
+        service_items.append(
+            AppointmentServiceRead(
+                service_id=service_id,
+                service_name=saved.get("service_name") or service.get("name"),
+                service_price=saved.get(
+                    "service_price",
+                    doc.get("service_price", service.get("price", 0.0))
+                    if len(service_ids) == 1
+                    else service.get("price", 0.0),
+                ),
+                service_duration_min=saved.get(
+                    "service_duration_min",
+                    doc.get("service_duration_min", service.get("duration_min", 0))
+                    if len(service_ids) == 1
+                    else service.get("duration_min", 0),
+                ),
+            )
+        )
+    service_names = [
+        item.service_name for item in service_items if item.service_name
+    ]
     return AppointmentRead(
         **{
             **doc,
+            "service_id": service_ids[0],
+            "service_ids": service_ids,
+            "service_names": service_names,
+            "service_items": service_items,
             "client_name": client["name"] if client else None,
             "stylist_name": stylist["name"] if stylist else None,
-            "service_name": service["name"] if service else None,
+            "service_name": ", ".join(service_names) or None,
             "service_price": doc.get(
-                "service_price", service["price"] if service else 0.0
+                "service_price",
+                sum(item.service_price for item in service_items),
             ),
             "service_duration_min": doc.get(
-                "service_duration_min", service["duration_min"] if service else 0
+                "service_duration_min",
+                sum(item.service_duration_min for item in service_items),
             ),
         }
     )
+
+
+def _service_ids(appointment: dict) -> list[str]:
+    return appointment.get("service_ids") or [appointment["service_id"]]
 
 
 async def _load(appointment_id: str) -> dict:
@@ -167,9 +210,12 @@ async def _assert_no_conflict(
         other_start = datetime.combine(
             other_day, datetime.strptime(appointment["time"], "%H:%M").time()
         )
-        other_duration = appointment.get(
-            "service_duration_min", service_durations.get(appointment["service_id"], 0)
-        )
+        other_duration = appointment.get("service_duration_min")
+        if other_duration is None:
+            other_duration = sum(
+                service_durations.get(service_id, 0)
+                for service_id in _service_ids(appointment)
+            )
         other_end = other_start + timedelta(minutes=other_duration)
         if candidate_start < other_end and candidate_end > other_start:
             raise HTTPException(
@@ -234,11 +280,16 @@ async def create_appointment(input: AppointmentCreate, user: dict = Depends(requ
         raise HTTPException(status_code=404, detail="client not found")
     if client.get("active", True) is False:
         raise HTTPException(status_code=400, detail="client is archived")
-    service = await db.services.find_one({"id": input.service_id})
-    if not service:
-        raise HTTPException(status_code=404, detail="service not found")
-    if service.get("active", True) is False:
-        raise HTTPException(status_code=400, detail="service is inactive")
+    selected_services = await db.services.find(
+        {"id": {"$in": input.service_ids}}
+    ).to_list(None)
+    services_by_id = {service["id"]: service for service in selected_services}
+    for service_id in input.service_ids:
+        service = services_by_id.get(service_id)
+        if not service:
+            raise HTTPException(status_code=404, detail="service not found")
+        if service.get("active", True) is False:
+            raise HTTPException(status_code=400, detail="service is inactive")
     if input.stylist_id:
         stylist = await db.stylists.find_one({"id": input.stylist_id})
         if not stylist:
@@ -246,11 +297,22 @@ async def create_appointment(input: AppointmentCreate, user: dict = Depends(requ
         if stylist.get("active", True) is False:
             raise HTTPException(status_code=400, detail="stylist is inactive")
 
+    service_items = [
+        {
+            "service_id": service_id,
+            "service_name": services_by_id[service_id]["name"],
+            "service_price": services_by_id[service_id]["price"],
+            "service_duration_min": services_by_id[service_id]["duration_min"],
+        }
+        for service_id in input.service_ids
+    ]
+    duration_min = sum(item["service_duration_min"] for item in service_items)
     doc = {
         "id": new_id(),
         **input.model_dump(),
-        "service_price": service["price"],
-        "service_duration_min": service["duration_min"],
+        "service_price": sum(item["service_price"] for item in service_items),
+        "service_duration_min": duration_min,
+        "service_items": service_items,
         "status": "scheduled",
         "created_by": user["id"],
         "created_at": utcnow(),
@@ -258,12 +320,12 @@ async def create_appointment(input: AppointmentCreate, user: dict = Depends(requ
     if input.stylist_id:
         async with _schedule_locks({(input.stylist_id, input.date)}):
             await _assert_no_conflict(
-                input.date, input.time, input.stylist_id, service["duration_min"]
+                input.date, input.time, input.stylist_id, duration_min
             )
             await db.appointments.insert_one(doc)
     else:
         await _assert_no_conflict(
-            input.date, input.time, None, service["duration_min"]
+            input.date, input.time, None, duration_min
         )
         await db.appointments.insert_one(doc)
     clients, stylists, services = await _resolve_maps([doc])
@@ -289,7 +351,7 @@ async def update_appointment(appointment_id: str, input: AppointmentUpdate):
             doc = await _load(appointment_id)
             if any(
                 doc.get(field) != initial.get(field)
-                for field in ("date", "time", "stylist_id", "service_id", "status")
+                for field in ("date", "time", "stylist_id", "service_id", "service_ids", "status")
             ):
                 raise HTTPException(
                     status_code=409,
@@ -303,24 +365,58 @@ async def _update_appointment_locked(
 ) -> AppointmentRead:
     update = input.model_dump(exclude_unset=True)
     client_id = update.get("client_id", doc["client_id"])
-    service_id = update.get("service_id", doc["service_id"])
+    previous_service_ids = _service_ids(doc)
+    service_ids = (
+        update["service_ids"]
+        if "service_ids" in update
+        else [update["service_id"]]
+        if "service_id" in update
+        else previous_service_ids
+    )
+    service_ids = service_ids or previous_service_ids
+    update["service_ids"] = service_ids
+    update["service_id"] = service_ids[0]
     stylist_id = update.get("stylist_id", doc.get("stylist_id"))
-    service = await db.services.find_one({"id": service_id})
-    if not service and service_id != doc["service_id"]:
-        raise HTTPException(status_code=404, detail="service not found")
-    if not service and service_id == doc["service_id"]:
-        service = {
-            "price": doc.get("service_price", 0.0),
-            "duration_min": doc.get("service_duration_min", 0),
+    selected_services = await db.services.find(
+        {"id": {"$in": service_ids}}
+    ).to_list(None)
+    services_by_id = {service["id"]: service for service in selected_services}
+    previous_items = {
+        item["service_id"]: item for item in doc.get("service_items", [])
+    }
+    if not previous_items and len(previous_service_ids) == 1:
+        previous_items[previous_service_ids[0]] = {
+            "service_id": previous_service_ids[0],
+            "service_name": services_by_id.get(previous_service_ids[0], {}).get("name"),
+            "service_price": doc.get("service_price", 0.0),
+            "service_duration_min": doc.get("service_duration_min", 0),
         }
+
+    service_items = []
+    for service_id in service_ids:
+        service = services_by_id.get(service_id)
+        previous_item = previous_items.get(service_id)
+        if not service and not previous_item:
+            raise HTTPException(status_code=404, detail="service not found")
+        if service and service.get("active", True) is False and service_id not in previous_service_ids:
+            raise HTTPException(status_code=400, detail="service is inactive")
+        if previous_item:
+            service_items.append(previous_item)
+        else:
+            service_items.append(
+                {
+                    "service_id": service_id,
+                    "service_name": service["name"],
+                    "service_price": service["price"],
+                    "service_duration_min": service["duration_min"],
+                }
+            )
 
     client = await db.clients.find_one({"id": client_id})
     if not client:
         raise HTTPException(status_code=404, detail="client not found")
     if client.get("active", True) is False and client_id != doc["client_id"]:
         raise HTTPException(status_code=400, detail="client is archived")
-    if service.get("active", True) is False and service_id != doc["service_id"]:
-        raise HTTPException(status_code=400, detail="service is inactive")
     if stylist_id:
         stylist = await db.stylists.find_one({"id": stylist_id})
         if not stylist:
@@ -330,30 +426,19 @@ async def _update_appointment_locked(
 
     date = update.get("date", doc["date"])
     time = update.get("time", doc["time"])
-    duration_min = (
-        doc.get("service_duration_min", service.get("duration_min", 0))
-        if service_id == doc["service_id"]
-        else service["duration_min"]
-    )
+    duration_min = sum(item["service_duration_min"] for item in service_items)
     schedule_changed = any(
         key in update and update[key] != doc.get(key)
-        for key in ("date", "time", "stylist_id", "service_id")
+        for key in ("date", "time", "stylist_id", "service_id", "service_ids")
     )
     if doc.get("status") != "cancelled" and schedule_changed:
         await _assert_no_conflict(
             date, time, stylist_id, duration_min, exclude_appointment_id=appointment_id
         )
 
-    update["service_price"] = (
-        service.get("price", doc.get("service_price", 0.0))
-        if service_id != doc["service_id"]
-        else doc.get("service_price", service.get("price", 0.0))
-    )
-    update["service_duration_min"] = (
-        duration_min
-        if service_id != doc["service_id"]
-        else doc.get("service_duration_min", service.get("duration_min", duration_min))
-    )
+    update["service_items"] = service_items
+    update["service_price"] = sum(item["service_price"] for item in service_items)
+    update["service_duration_min"] = duration_min
     if update:
         result = await db.appointments.update_one(
             {
@@ -391,7 +476,6 @@ async def complete_appointment(appointment_id: str):
             )
     doc["status"] = "completed"
 
-    service = await db.services.find_one({"id": doc["service_id"]}) or {}
     client = await db.clients.find_one({"id": doc["client_id"]})
     if client:
         today = today_iso()
@@ -406,7 +490,18 @@ async def complete_appointment(appointment_id: str):
                     "appointment_id": appointment_id,
                     "client_id": client["id"],
                     "kind": "visit",
-                    "body": f"Appointment completed — {service.get('name', 'service')}.",
+                    "body": "Appointment completed — "
+                    + (
+                        ", ".join(
+                            item.get("service_name", "service")
+                            for item in doc.get("service_items", [])
+                        )
+                        if doc.get("service_items")
+                        else (await db.services.find_one({"id": doc["service_id"]}) or {}).get(
+                            "name", "service"
+                        )
+                    )
+                    + ".",
                     "created_at": utcnow(),
                 }
             )

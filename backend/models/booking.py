@@ -160,10 +160,26 @@ class PublicAvailabilitySlot(BaseModel):
 class PublicBookingRequest(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     phone: str = Field(min_length=8, max_length=30)
-    service_id: str
+    service_id: str | None = None
+    service_ids: list[str] = Field(default_factory=list)
     stylist_id: str | None = None
     date: str
     time: str
+
+    @model_validator(mode="after")
+    def normalize_services(self):
+        service_ids = self.service_ids or (
+            [self.service_id] if self.service_id else []
+        )
+        if not service_ids:
+            raise ValueError("at least one service is required")
+        if len(service_ids) != len(set(service_ids)):
+            raise ValueError("services must be unique")
+        if self.service_id and self.service_id != service_ids[0]:
+            raise ValueError("service_id must match the first service")
+        self.service_ids = service_ids
+        self.service_id = service_ids[0]
+        return self
 
     @field_validator("name")
     @classmethod
@@ -195,6 +211,7 @@ class PublicBookingRequest(BaseModel):
 class PublicBookingConfirmation(BaseModel):
     salon_name: str
     service_name: str
+    service_names: list[str] = Field(default_factory=list)
     stylist_name: str
     date: str
     time: str

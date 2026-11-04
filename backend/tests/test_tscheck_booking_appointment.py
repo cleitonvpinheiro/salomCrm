@@ -68,3 +68,81 @@ def test_inactive_service_not_in_active_list(admin_client):
     })
     assert rejected.status_code == 400, rejected.text
     admin_client.delete(f"/clients/{client.json()['id']}")
+
+
+def test_appointment_accepts_multiple_services_and_updates_totals(admin_client):
+    client_name = f"tscheck-multi-service-{uuid.uuid4().hex[:8]}"
+    client = admin_client.post("/clients", json={"name": client_name})
+    assert client.status_code == 201, client.text
+    client_id = client.json()["id"]
+
+    active_services = sorted(
+        (service for service in admin_client.get("/services").json() if service["active"]),
+        key=lambda service: service["duration_min"],
+    )
+    selected = active_services[:2]
+    assert len(selected) == 2, "at least two active services are required"
+    stylist = next(s for s in admin_client.get("/stylists").json() if s["active"])
+    payload = {
+        "client_id": client_id,
+        "stylist_id": stylist["id"],
+        "service_ids": [service["id"] for service in selected],
+        "date": "2099-06-17",
+        "time": "10:00",
+    }
+
+    created = admin_client.post("/appointments", json=payload)
+    assert created.status_code == 201, created.text
+    appointment = created.json()
+    appointment_id = appointment["id"]
+    assert appointment["service_id"] == selected[0]["id"]
+    assert appointment["service_ids"] == [service["id"] for service in selected]
+    assert appointment["service_names"] == [service["name"] for service in selected]
+    assert appointment["service_price"] == sum(service["price"] for service in selected)
+    assert appointment["service_duration_min"] == sum(
+        service["duration_min"] for service in selected
+    )
+    assert [item["service_id"] for item in appointment["service_items"]] == [
+        service["id"] for service in selected
+    ]
+
+    overlap = admin_client.post(
+        "/appointments",
+        json={
+            **payload,
+            "client_id": client_id,
+            "time": "10:01",
+        },
+    )
+    assert overlap.status_code == 409, overlap.text
+
+    updated = admin_client.put(
+        f"/appointments/{appointment_id}",
+        json={"service_ids": [selected[1]["id"]]},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["service_ids"] == [selected[1]["id"]]
+    assert updated.json()["service_price"] == selected[1]["price"]
+    assert updated.json()["service_duration_min"] == selected[1]["duration_min"]
+
+    admin_client.delete(f"/appointments/{appointment_id}")
+    admin_client.delete(f"/clients/{client_id}")
+
+
+def test_appointment_rejects_duplicate_services(admin_client):
+    client_name = f"tscheck-duplicate-service-{uuid.uuid4().hex[:8]}"
+    client = admin_client.post("/clients", json={"name": client_name})
+    assert client.status_code == 201, client.text
+    service = next(s for s in admin_client.get("/services").json() if s["active"])
+
+    response = admin_client.post(
+        "/appointments",
+        json={
+            "client_id": client.json()["id"],
+            "service_ids": [service["id"], service["id"]],
+            "date": "2099-06-18",
+            "time": "10:00",
+        },
+    )
+    assert response.status_code == 422, response.text
+    admin_client.delete(f"/clients/{client.json()['id']}")

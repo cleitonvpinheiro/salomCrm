@@ -64,6 +64,28 @@ def test_public_booking_request_normalizes_fields():
     )
     assert booking.name == "Alex Doe"
     assert booking.phone == "+1 555 123 4567"
+    assert booking.service_ids == ["service-1"]
+
+
+def test_public_booking_request_accepts_multiple_services_and_rejects_duplicates():
+    booking = PublicBookingRequest(
+        name="Alex Doe",
+        phone="5551234567",
+        service_ids=["service-1", "service-2"],
+        date="2026-10-28",
+        time="09:30",
+    )
+    assert booking.service_id == "service-1"
+    assert booking.service_ids == ["service-1", "service-2"]
+
+    with pytest.raises(ValidationError):
+        PublicBookingRequest(
+            name="Alex Doe",
+            phone="5551234567",
+            service_ids=["service-1", "service-1"],
+            date="2026-10-28",
+            time="09:30",
+        )
 
 
 @pytest.mark.parametrize(

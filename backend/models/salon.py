@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def new_id() -> str:
@@ -188,10 +188,26 @@ APPT_STATUSES = ("scheduled", "completed", "cancelled")
 class AppointmentCreate(BaseModel):
     client_id: str
     stylist_id: str | None = None
-    service_id: str
+    service_id: str | None = None
+    service_ids: list[str] = Field(default_factory=list)
     date: str  # YYYY-MM-DD, salon wall-clock
     time: str  # HH:MM
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _normalize_services(self):
+        service_ids = self.service_ids or (
+            [self.service_id] if self.service_id else []
+        )
+        if not service_ids:
+            raise ValueError("at least one service is required")
+        if len(service_ids) != len(set(service_ids)):
+            raise ValueError("services must be unique")
+        if self.service_id and self.service_id != service_ids[0]:
+            raise ValueError("service_id must match the first service")
+        self.service_ids = service_ids
+        self.service_id = service_ids[0]
+        return self
 
     @field_validator("date")
     @classmethod
@@ -209,9 +225,24 @@ class AppointmentUpdate(BaseModel):
     client_id: str | None = None
     stylist_id: str | None = None
     service_id: str | None = None
+    service_ids: list[str] | None = None
     date: str | None = None
     time: str | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _normalize_services(self):
+        if self.service_ids is None and self.service_id is not None:
+            self.service_ids = [self.service_id]
+        elif self.service_ids is not None:
+            if not self.service_ids:
+                raise ValueError("at least one service is required")
+            if len(self.service_ids) != len(set(self.service_ids)):
+                raise ValueError("services must be unique")
+            if self.service_id and self.service_id != self.service_ids[0]:
+                raise ValueError("service_id must match the first service")
+            self.service_id = self.service_ids[0]
+        return self
 
     @field_validator("date")
     @classmethod
@@ -231,12 +262,23 @@ class AppointmentUpdate(BaseModel):
 
 class Appointment(AppointmentCreate):
     id: str = Field(default_factory=new_id)
+    service_id: str
     status: str = "scheduled"
     created_by: str = ""
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class AppointmentServiceRead(BaseModel):
+    service_id: str
+    service_name: str | None = None
+    service_price: float = 0.0
+    service_duration_min: int = 0
+
+
 class AppointmentRead(Appointment):
+    service_ids: list[str] = Field(default_factory=list)
+    service_names: list[str] = Field(default_factory=list)
+    service_items: list[AppointmentServiceRead] = Field(default_factory=list)
     client_name: str | None = None
     stylist_name: str | None = None
     service_name: str | None = None

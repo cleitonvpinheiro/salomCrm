@@ -41,7 +41,7 @@ export default function PublicBookingPage() {
   const today = localDate(new Date());
   const lastDay = new Date();
   lastDay.setDate(lastDay.getDate() + 30);
-  const [serviceId, setServiceId] = useState("");
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [stylistId, setStylistId] = useState("");
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("");
@@ -54,15 +54,16 @@ export default function PublicBookingPage() {
     retry: false,
   });
   const availabilityQuery = useQuery({
-    queryKey: ["public-booking-availability", slug, serviceId, stylistId, date],
+    queryKey: ["public-booking-availability", slug, serviceIds, stylistId, date],
     queryFn: () => {
-      const params = new URLSearchParams({ date, service_id: serviceId });
+      const params = new URLSearchParams({ date });
+      for (const serviceId of serviceIds) params.append("service_ids", serviceId);
       if (stylistId) params.set("stylist_id", stylistId);
       return apiGet<PublicAvailabilitySlot[]>(
         `/booking/public/${encodeURIComponent(slug)}/availability?${params}`
       );
     },
-    enabled: Boolean(serviceId && date),
+    enabled: Boolean(serviceIds.length && date),
     retry: false,
   });
   const bookingMutation = useMutation({
@@ -72,7 +73,8 @@ export default function PublicBookingPage() {
         {
           name,
           phone,
-          service_id: serviceId,
+          service_id: serviceIds[0],
+          service_ids: serviceIds,
           stylist_id: stylistId || null,
           date,
           time,
@@ -102,7 +104,7 @@ export default function PublicBookingPage() {
           <p className="mt-2 text-stone-600">{t("Your appointment is reserved.")}</p>
           <div className="mt-6 rounded-2xl bg-[#FAF7F2] p-5 text-left">
             <p className="font-semibold">{confirmation.salon_name}</p>
-            <p className="mt-3">{confirmation.service_name}</p>
+            <p className="mt-3">{confirmation.service_names.join(", ")}</p>
             <p>{t("Professional")}: {confirmation.stylist_name}</p>
             <p className="mt-2">{formatDate(new Date(`${confirmation.date}T12:00:00`), { dateStyle: "long" })}</p>
             <p>{t("Time")}: {confirmation.time}</p>
@@ -160,29 +162,56 @@ export default function PublicBookingPage() {
                 bookingMutation.mutate();
               }}
             >
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium">{t("Service")}</span>
-                <select
-                  className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm"
-                  value={serviceId}
-                  required
-                  onChange={(event) => {
-                    setServiceId(event.target.value);
-                    setTime("");
-                  }}
-                  data-testid="public-booking-service"
-                >
-                  <option value="">{t("Choose a service")}</option>
-                  {infoQuery.data.services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name} · {service.duration_min} {t("min")} · {formatBRL(service.price)}
-                    </option>
-                  ))}
-                </select>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">{t("Services")}</legend>
+                <div className="grid gap-2">
+                  {infoQuery.data.services.map((service) => {
+                    const checked = serviceIds.includes(service.id);
+                    return (
+                      <label
+                        key={service.id}
+                        className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-[#E7DFD5] px-3 py-2 transition-colors hover:bg-[#FAF7F2]"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                          checked={checked}
+                          onChange={(event) => {
+                            setServiceIds((current) =>
+                              event.target.checked
+                                ? [...current, service.id]
+                                : current.filter((id) => id !== service.id)
+                            );
+                            setTime("");
+                          }}
+                          data-testid={`public-booking-service-${service.id}`}
+                        />
+                        <span className="min-w-0 flex-1 text-sm">{service.name}</span>
+                        <span className="flex-none text-xs text-stone-500">
+                          {service.duration_min} {t("min")} · {formatBRL(service.price)}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {serviceIds.length > 0 && (
+                  <p className="text-xs font-medium text-stone-600" aria-live="polite">
+                    {t("Selected services total: {duration} min · {price}", {
+                      duration: infoQuery.data.services
+                        .filter((service) => serviceIds.includes(service.id))
+                        .reduce((total, service) => total + service.duration_min, 0),
+                      price: formatBRL(
+                        infoQuery.data.services
+                          .filter((service) => serviceIds.includes(service.id))
+                          .reduce((total, service) => total + service.price, 0)
+                      ),
+                    })}
+                  </p>
+                )}
                 {infoQuery.data.services.length === 0 && (
                   <span className="block text-xs text-amber-700">{t("No services are available for online booking.")}</span>
                 )}
-              </label>
+              </fieldset>
 
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium">{t("Professional")}</span>
@@ -219,7 +248,7 @@ export default function PublicBookingPage() {
                 />
               </label>
 
-              {serviceId && (
+              {serviceIds.length > 0 && (
                 <fieldset className="space-y-2">
                   <legend className="flex items-center gap-2 text-sm font-medium"><Clock3 className="h-4 w-4" />{t("Available times")}</legend>
                   {availabilityQuery.isLoading && <p className="text-sm text-stone-500">{t("Loading…")}</p>}
@@ -268,7 +297,7 @@ export default function PublicBookingPage() {
                 type="submit"
                 disabled={
                   bookingMutation.isPending ||
-                  !serviceId ||
+                  !serviceIds.length ||
                   !time ||
                   !name.trim() ||
                   !phone.trim() ||

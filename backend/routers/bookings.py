@@ -5,7 +5,7 @@ import re
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from lib.auth_rate_limit import enforce_auth_rate_limit
 from lib.dates import today_iso
@@ -124,7 +124,12 @@ async def _available_slots(
                     existing_start = datetime.combine(booking_date, existing_start.time())
                     existing_duration = appointment.get(
                         "service_duration_min",
-                        services.get(appointment.get("service_id"), 0),
+                        sum(
+                            services.get(service_id, 0)
+                            for service_id in appointment.get(
+                                "service_ids", [appointment.get("service_id")]
+                            )
+                        ),
                     )
                     existing_end = existing_start + timedelta(minutes=existing_duration)
                     if candidate < existing_end and candidate_end > existing_start:
@@ -293,7 +298,8 @@ async def public_booking_info(slug: str):
 async def public_booking_availability(
     slug: str,
     date: str,
-    service_id: str,
+    service_id: str | None = None,
+    service_ids: list[str] | None = Query(default=None),
     stylist_id: str | None = None,
 ):
     booking_date = _check_booking_date(date)
@@ -303,10 +309,23 @@ async def public_booking_availability(
     )
     if not settings.enabled:
         raise HTTPException(status_code=404, detail="Online booking is unavailable")
+    selected_ids = service_ids or ([service_id] if service_id else [])
+    if not selected_ids:
+        raise HTTPException(status_code=422, detail="At least one service is required")
+    if len(selected_ids) != len(set(selected_ids)):
+        raise HTTPException(status_code=422, detail="Services must be unique")
     with tenant_scope(tenant["id"]):
-        service = await db.services.find_one({"id": service_id, "active": {"$ne": False}})
-        if not service:
+        services = await db.services.find(
+            {"id": {"$in": selected_ids}, "active": {"$ne": False}}
+        ).to_list(None)
+        services_by_id = {service["id"]: service for service in services}
+        if any(service_id not in services_by_id for service_id in selected_ids):
             raise HTTPException(status_code=404, detail="Service not found")
+        service = {
+            "duration_min": sum(
+                services_by_id[selected_id]["duration_min"] for selected_id in selected_ids
+            )
+        }
         query = {"active": {"$ne": False}}
         if stylist_id:
             query["id"] = stylist_id
@@ -334,11 +353,25 @@ async def create_public_booking(
         raise HTTPException(status_code=404, detail="Online booking is unavailable")
 
     with tenant_scope(tenant["id"]):
-        service = await db.services.find_one(
-            {"id": booking.service_id, "active": {"$ne": False}}
-        )
-        if not service:
+        services = await db.services.find(
+            {"id": {"$in": booking.service_ids}, "active": {"$ne": False}}
+        ).to_list(None)
+        services_by_id = {service["id"]: service for service in services}
+        if any(service_id not in services_by_id for service_id in booking.service_ids):
             raise HTTPException(status_code=404, detail="Service not found")
+        service_items = [
+            {
+                "service_id": service_id,
+                "service_name": services_by_id[service_id]["name"],
+                "service_price": services_by_id[service_id]["price"],
+                "service_duration_min": services_by_id[service_id]["duration_min"],
+            }
+            for service_id in booking.service_ids
+        ]
+        service_duration_min = sum(
+            item["service_duration_min"] for item in service_items
+        )
+        service_price = sum(item["service_price"] for item in service_items)
         stylist_query = {"active": {"$ne": False}}
         if booking.stylist_id:
             stylist_query["id"] = booking.stylist_id
@@ -349,7 +382,12 @@ async def create_public_booking(
         async with _schedule_locks(
             {(stylist["id"], booking.date) for stylist in stylists}
         ):
-            slots = await _available_slots(booking_date, service, settings, stylists)
+            slots = await _available_slots(
+                booking_date,
+                {"duration_min": service_duration_min},
+                settings,
+                stylists,
+            )
             available_stylist_ids = [
                 slot.stylist_id for slot in slots if slot.time == booking.time
             ]
@@ -365,7 +403,7 @@ async def create_public_booking(
                 booking.date,
                 booking.time,
                 stylist["id"],
-                service["duration_min"],
+                service_duration_min,
             )
 
             phone = booking.phone.strip()
@@ -390,12 +428,14 @@ async def create_public_booking(
                 "id": new_id(),
                 "client_id": client["id"],
                 "stylist_id": stylist["id"],
-                "service_id": service["id"],
+                "service_id": booking.service_ids[0],
+                "service_ids": booking.service_ids,
                 "date": booking.date,
                 "time": booking.time,
                 "notes": "Agendado online",
-                "service_price": service["price"],
-                "service_duration_min": service["duration_min"],
+                "service_price": service_price,
+                "service_duration_min": service_duration_min,
+                "service_items": service_items,
                 "status": "scheduled",
                 "created_by": "online-booking",
                 "created_at": utcnow(),
@@ -404,7 +444,8 @@ async def create_public_booking(
 
     return PublicBookingConfirmation(
         salon_name=tenant["name"],
-        service_name=service["name"],
+        service_name=", ".join(item["service_name"] for item in service_items),
+        service_names=[item["service_name"] for item in service_items],
         stylist_name=stylist["name"],
         date=booking.date,
         time=booking.time,

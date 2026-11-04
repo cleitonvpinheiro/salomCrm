@@ -92,11 +92,21 @@ export interface Service {
 
 export type AppointmentStatus = "scheduled" | "completed" | "cancelled";
 
+export interface AppointmentService {
+  service_id: string;
+  service_name: string | null;
+  service_price: number;
+  service_duration_min: number;
+}
+
 export interface Appointment {
   id: string;
   client_id: string;
   stylist_id: string | null;
   service_id: string;
+  service_ids: string[];
+  service_names: string[];
+  service_items: AppointmentService[];
   date: string;
   time: string;
   notes: string | null;

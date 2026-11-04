@@ -85,10 +85,10 @@ function ReportsDashboard() {
   }, [completed, fromDate, toDate]);
 
   const { byStylist, byService } = useMemo(() => {
-    const aggregate = (getName: (appointment: Appointment) => string) => {
+    const aggregateByStylist = () => {
       const rows = new Map<string, BreakdownRow>();
       for (const appointment of completed) {
-        const name = getName(appointment);
+        const name = appointment.stylist_name ?? t("Unassigned");
         const row = rows.get(name) ?? { name, appointments: 0, revenue: 0 };
         row.appointments += 1;
         row.revenue += appointment.service_price;
@@ -99,9 +99,30 @@ function ReportsDashboard() {
       );
     };
 
+    const serviceRows = new Map<string, BreakdownRow>();
+    for (const appointment of completed) {
+      const items = appointment.service_items.length
+        ? appointment.service_items
+        : [{
+            service_id: appointment.service_id,
+            service_name: appointment.service_name,
+            service_price: appointment.service_price,
+            service_duration_min: appointment.service_duration_min,
+          }];
+      for (const item of items) {
+        const name = item.service_name ?? t("Service");
+        const row = serviceRows.get(name) ?? { name, appointments: 0, revenue: 0 };
+        row.appointments += 1;
+        row.revenue += item.service_price;
+        serviceRows.set(name, row);
+      }
+    }
+
     return {
-      byStylist: aggregate((appointment) => appointment.stylist_name ?? t("Unassigned")),
-      byService: aggregate((appointment) => appointment.service_name ?? t("Service")),
+      byStylist: aggregateByStylist(),
+      byService: [...serviceRows.values()].sort(
+        (a, b) => b.revenue - a.revenue || a.name.localeCompare(b.name)
+      ),
     };
   }, [completed, t]);
 

@@ -117,6 +117,7 @@ export interface PublicAvailabilitySlot {
 export interface PublicBookingConfirmation {
   salon_name: string;
   service_name: string;
+  service_names: string[];
   stylist_name: string;
   date: string;
   time: string;

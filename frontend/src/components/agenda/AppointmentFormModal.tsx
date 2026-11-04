@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { ApiError, apiGet, apiPost, apiPut } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { Appointment, Client, PageResult, Service, Stylist } from "@/lib/types";
+import { formatBRL } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -81,7 +83,7 @@ export default function AppointmentFormModal({
 
   const [clientId, setClientId] = useState("none");
   const [stylistId, setStylistId] = useState("none");
-  const [serviceId, setServiceId] = useState("none");
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [date, setDate] = useState<string | null>(defaultDate);
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState("");
@@ -91,7 +93,10 @@ export default function AppointmentFormModal({
     if (!open) return;
     setClientId(appointment?.client_id ?? "none");
     setStylistId(appointment?.stylist_id ?? "none");
-    setServiceId(appointment?.service_id ?? "none");
+    setServiceIds(
+      appointment?.service_ids ??
+        (appointment?.service_id ? [appointment.service_id] : [])
+    );
     setDate(appointment?.date ?? defaultDate);
     setTime(appointment?.time ?? "09:00");
     setNotes(appointment?.notes ?? "");
@@ -102,7 +107,8 @@ export default function AppointmentFormModal({
       const payload = {
         client_id: clientId,
         stylist_id: stylistId === "none" ? null : stylistId,
-        service_id: serviceId,
+        service_id: serviceIds[0],
+        service_ids: serviceIds,
         date,
         time,
         notes: notes.trim() || null,
@@ -146,16 +152,29 @@ export default function AppointmentFormModal({
 
   const clientLabel = (id: string) =>
     (clients ?? []).find((c) => c.id === id)?.name ?? t("Choose a client");
-  const serviceLabel = (id: string) => {
-    const s = (services ?? []).find((x) => x.id === id);
-    return s ? `${s.name} · ${s.duration_min} ${t("min")}` : t("Choose a service");
-  };
   const stylistLabel = (id: string) =>
     (stylists ?? []).find((s) => s.id === id)?.name ?? t("Unassigned");
 
   const activeServices = (services ?? []).filter(
-    (s) => s.active || s.id === appointment?.service_id
+    (s) => s.active || serviceIds.includes(s.id)
   );
+  const selectedServices = activeServices.filter((service) => serviceIds.includes(service.id));
+  const selectedDuration = selectedServices.reduce(
+    (total, service) => total + service.duration_min,
+    0
+  );
+  const selectedPrice = selectedServices.reduce(
+    (total, service) => total + service.price,
+    0
+  );
+
+  const toggleService = (serviceId: string, checked: boolean) => {
+    setServiceIds((current) =>
+      checked
+        ? [...current, serviceId]
+        : current.filter((id) => id !== serviceId)
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -178,8 +197,8 @@ export default function AppointmentFormModal({
               toast.error(t("Choose a client"));
               return;
             }
-            if (serviceId === "none") {
-              toast.error(t("Choose a service"));
+            if (serviceIds.length === 0) {
+              toast.error(t("Choose at least one service"));
               return;
             }
             if (!date || !time) {
@@ -218,21 +237,53 @@ export default function AppointmentFormModal({
             ) : null}
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="appt-service">{t("Service")}</Label>
-            <Select value={serviceId} onValueChange={(v) => setServiceId(v)}>
-              <SelectTrigger id="appt-service" data-testid="appointment-service-select" className="w-full">
-                <SelectValue>{() => serviceLabel(serviceId)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent data-testid="appointment-service-options">
-                {activeServices.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name} · {s.duration_min} {t("min")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">{t("Services")}</legend>
+            <div
+              className="grid max-h-48 gap-2 overflow-y-auto rounded-lg border border-[#E5DCD0] p-2"
+              data-testid="appointment-service-options"
+            >
+              {activeServices.map((service) => {
+                const checked = serviceIds.includes(service.id);
+                const checkboxId = `appt-service-${service.id}`;
+                return (
+                  <label
+                    key={service.id}
+                    htmlFor={checkboxId}
+                    data-testid={`appointment-service-option-${service.id}`}
+                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-[#FAF7F2]"
+                  >
+                    <Checkbox
+                      id={checkboxId}
+                      checked={checked}
+                      onCheckedChange={(value) => toggleService(service.id, value === true)}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-stone-800">
+                      {service.name}
+                    </span>
+                    <span className="flex-none text-xs text-stone-500">
+                      {service.duration_min} {t("min")} · {formatBRL(service.price)}
+                    </span>
+                  </label>
+                );
+              })}
+              {activeServices.length === 0 && (
+                <p className="px-2 py-3 text-sm text-stone-500">{t("No services yet")}</p>
+              )}
+            </div>
+            {selectedServices.length > 0 && (
+              <p
+                className="text-xs font-medium text-stone-600"
+                data-testid="appointment-service-total"
+                aria-live="polite"
+              >
+                {t("Selected services total: {duration} min · {price}", {
+                  duration: selectedDuration,
+                  price: formatBRL(selectedPrice),
+                })}
+              </p>
+            )}
+          </fieldset>
 
           <div className="grid gap-1.5">
             <Label htmlFor="appt-stylist">{t("Professional")}</Label>
