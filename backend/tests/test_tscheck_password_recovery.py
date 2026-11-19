@@ -1,5 +1,6 @@
 """Password recovery tokens are scoped, single-use, and delivered over configured SMTP."""
 
+import ssl
 from datetime import timedelta
 from email.message import EmailMessage
 from types import SimpleNamespace
@@ -174,12 +175,38 @@ def test_smtp_sender_uses_tls_and_builds_reset_link(monkeypatch):
     )
 
     smtp.starttls.assert_called_once()
+    tls_context = smtp.starttls.call_args.kwargs["context"]
+    assert tls_context.verify_mode == ssl.CERT_REQUIRED
+    assert tls_context.check_hostname
     smtp.login.assert_called_once_with("smtp-user", "smtp-secret")
     message = smtp.send_message.call_args.args[0]
     assert isinstance(message, EmailMessage)
     assert "https://salon.example.com/reset-password?" in message.get_content()
     assert "opaque-reset-token" in message.get_content()
     assert "tenant=salon" in message.get_content()
+
+
+def test_smtp_ssl_sender_validates_server_certificate(monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_FROM_EMAIL", "Atelier <no-reply@example.com>")
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://salon.example.com")
+    smtp = MagicMock()
+    smtp.__enter__.return_value = smtp
+    smtp_ssl = MagicMock(return_value=smtp)
+    monkeypatch.setattr(password_recovery.smtplib, "SMTP_SSL", smtp_ssl)
+
+    password_recovery.send_password_reset_email(
+        "owner@example.com",
+        "opaque-reset-token",
+        "tenant",
+        "salon",
+    )
+
+    tls_context = smtp_ssl.call_args.kwargs["context"]
+    assert tls_context.verify_mode == ssl.CERT_REQUIRED
+    assert tls_context.check_hostname
+    smtp.send_message.assert_called_once()
 
 
 def test_password_recovery_is_unavailable_without_smtp_configuration(monkeypatch):

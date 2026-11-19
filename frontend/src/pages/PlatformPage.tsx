@@ -29,6 +29,16 @@ interface CreateTenantPayload {
   admin_password: string;
 }
 
+function slugify(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
 function isDefaultTenant(tenant: Tenant): boolean {
   return (
     tenant.is_default ??
@@ -49,6 +59,7 @@ export default function PlatformPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [slugEdited, setSlugEdited] = useState(false);
   const [form, setForm] = useState<CreateTenantPayload>({
     name: "",
     slug: "",
@@ -74,6 +85,7 @@ export default function PlatformPage() {
     onSuccess: async (tenant) => {
       toast.success(t(`Created workspace {name}. Share the admin credentials securely.`, { name: tenant.name }));
       setForm({ name: "", slug: "", admin_name: "", admin_email: "", admin_password: "" });
+      setSlugEdited(false);
       await queryClient.invalidateQueries({ queryKey: ["platform-tenants"] });
     },
     onError: () => toast.error(t("Could not create the workspace. Check that its slug and e-mail are unused.")),
@@ -186,8 +198,32 @@ export default function PlatformPage() {
                 createTenant.mutate();
               }}
             >
-              <Field label={t("Workspace name")} value={form.name} onChange={(value) => set("name", value)} />
-              <Field label={t("Workspace slug")} value={form.slug} onChange={(value) => set("slug", value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
+              <Field
+                label={t("Workspace name")}
+                value={form.name}
+                onChange={(value) => {
+                  setForm((current) => ({
+                    ...current,
+                    name: value,
+                    slug: slugEdited ? current.slug : slugify(value),
+                  }));
+                }}
+              />
+              <div>
+                <Field
+                  label={t("Workspace slug")}
+                  value={form.slug}
+                  onChange={(value) => {
+                    setSlugEdited(true);
+                    set("slug", value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                  }}
+                />
+                {form.slug && (
+                  <p className="mt-1 truncate font-mono text-xs text-stone-500">
+                    {window.location.origin}/agendar/{form.slug}
+                  </p>
+                )}
+              </div>
               <Field label={t("Administrator name")} value={form.admin_name} onChange={(value) => set("admin_name", value)} />
               <Field label={t("Administrator e-mail")} type="email" value={form.admin_email} onChange={(value) => set("admin_email", value)} />
               <Field label={t("Temporary password (10+ characters)")} type="password" value={form.admin_password} onChange={(value) => set("admin_password", value)} />

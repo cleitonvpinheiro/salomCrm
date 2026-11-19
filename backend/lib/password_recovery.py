@@ -2,6 +2,7 @@
 
 import os
 import smtplib
+import ssl
 from email.message import EmailMessage
 from datetime import timedelta
 from urllib.parse import urlencode, urlsplit
@@ -56,13 +57,15 @@ def send_password_reset_email(
         raise RuntimeError("SMTP_USERNAME and SMTP_PASSWORD must be set together")
 
     if port == 465:
-        with smtplib.SMTP_SSL(host, port, timeout=15) as smtp:
+        with smtplib.SMTP_SSL(
+            host, port, timeout=15, context=ssl.create_default_context()
+        ) as smtp:
             if username:
                 smtp.login(username, password)
             smtp.send_message(message)
     else:
         with smtplib.SMTP(host, port, timeout=15) as smtp:
-            smtp.starttls()
+            smtp.starttls(context=ssl.create_default_context())
             if username:
                 smtp.login(username, password)
             smtp.send_message(message)
