@@ -1,0 +1,9 @@
+[build]
+  base = "frontend"
+  command = "corepack yarn@4.18.1 install --immutable && corepack yarn@4.18.1 build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

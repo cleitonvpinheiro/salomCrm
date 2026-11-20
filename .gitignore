@@ -94,3 +94,6 @@ android-sdk/
 .emergent/
 /.trae/
 /.docs
+
+# Yarn local state
+frontend/.yarn/install-state.gz
